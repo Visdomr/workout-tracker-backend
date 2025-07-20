@@ -1,0 +1,91 @@
+{{template "base.html" .}}
+
+{{define "content"}}
+<div class="container">
+    <div class="dashboard-header">
+        <h1>Welcome to Your Workout Tracker</h1>
+        <p>Track your fitness journey and monitor your progress</p>
+    </div>
+
+    <div class="dashboard-stats">
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i class="fas fa-calendar-alt"></i>
+            </div>
+            <div class="stat-content">
+                <h3>{{.Stats.total_workouts}}</h3>
+                <p>Total Workouts</p>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i class="fas fa-fire"></i>
+            </div>
+            <div class="stat-content">
+                <h3>{{.Stats.this_week_workouts}}</h3>
+                <p>This Week</p>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i class="fas fa-clock"></i>
+            </div>
+            <div class="stat-content">
+                <h3>{{.Stats.avg_duration}}</h3>
+                <p>Avg Duration (min)</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="dashboard-actions">
+        <a href="/workouts/new" class="btn btn-primary btn-large">
+            <i class="fas fa-plus"></i> Start New Workout
+        </a>
+        <a href="/workouts" class="btn btn-secondary btn-large">
+            <i class="fas fa-list"></i> View All Workouts
+        </a>
+    </div>
+
+    {{if .Workouts}}
+    <div class="recent-workouts">
+        <h2>Recent Workouts</h2>
+        <div class="workout-grid">
+            {{range .Workouts}}
+            <div class="workout-card">
+                <div class="workout-header">
+                    <h3>{{.Name}}</h3>
+                    <span class="workout-date">{{.Date.Format "Jan 2, 2006"}}</span>
+                </div>
+                <div class="workout-info">
+                    {{if .Duration}}
+                    <div class="workout-duration">
+                        <i class="fas fa-clock"></i>
+                        <span>{{.Duration}} min</span>
+                    </div>
+                    {{end}}
+                    {{if .Notes}}
+                    <div class="workout-notes">
+                        <i class="fas fa-sticky-note"></i>
+                        <span>{{.Notes}}</span>
+                    </div>
+                    {{end}}
+                </div>
+                <div class="workout-actions">
+                    <a href="/workouts/{{.ID}}" class="btn btn-small">View Details</a>
+                </div>
+            </div>
+            {{end}}
+        </div>
+    </div>
+    {{else}}
+    <div class="empty-state">
+        <div class="empty-icon">
+            <i class="fas fa-dumbbell"></i>
+        </div>
+        <h3>No workouts yet</h3>
+        <p>Start your fitness journey by creating your first workout!</p>
+        <a href="/workouts/new" class="btn btn-primary">Create First Workout</a>
+    </div>
+    {{end}}
+</div>
+{{end}}

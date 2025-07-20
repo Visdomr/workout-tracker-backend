@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{.Title}}</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .header { background: #e74c3c; color: white; padding: 20px; margin-bottom: 30px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input, textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; }
+        .btn { background: #e74c3c; color: white; padding: 12px 25px; border: none; border-radius: 5px; cursor: pointer; }
+        .btn-secondary { background: #6c757d; }
+        a { text-decoration: none; }
+        .template-card:hover { border-color: #e74c3c !important; transform: translateY(-2px); transition: all 0.2s; }
+        .template-card.selected { border-color: #e74c3c !important; background-color: #fff5f5 !important; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>{{.Title}}</h1>
+    </div>
+
+    <!-- Template Selection -->
+    {{if .Templates}}
+    <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 30px;">
+        <h3>Choose a Workout Template (Optional)</h3>
+        <p>Select a pre-made workout template or create your own from scratch:</p>
+        
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px; margin: 20px 0;">
+            {{range .Templates}}
+            <div class="template-card" onclick="selectTemplate('{{.Name}}', {{.ID}})" style="border: 2px solid #dee2e6; padding: 15px; border-radius: 8px; cursor: pointer; background: white;">
+                <h4 style="margin: 0 0 8px 0; color: #e74c3c;">{{.Name}}</h4>
+                <p style="margin: 0 0 10px 0; color: #666; font-size: 14px;">{{.Description}}</p>
+                <div style="margin-bottom: 10px;">
+                    <strong>Category:</strong> <span style="background: #e74c3c; color: white; padding: 2px 8px; border-radius: 3px; font-size: 12px;">{{.Category}}</span>
+                </div>
+                <div>
+                    <strong>Exercises:</strong>
+                    <ul style="margin: 5px 0; padding-left: 20px; font-size: 13px;">
+                        {{range .Exercises}}
+                        <li>{{.Name}} - {{.Sets}} sets x {{.Reps}}</li>
+                        {{end}}
+                    </ul>
+                </div>
+            </div>
+            {{end}}
+        </div>
+    </div>
+    {{end}}
+
+    <form method="POST" action="/create">
+        <input type="hidden" id="template_id" name="template_id" value="">
+        
+        <div class="form-group">
+            <label for="name">Workout Name:</label>
+            <input type="text" id="name" name="name" required>
+        </div>
+
+        <div class="form-group">
+            <label for="date">Date:</label>
+            <input type="date" id="date" name="date" required>
+        </div>
+
+        <div class="form-group">
+            <label for="notes">Notes:</label>
+            <textarea id="notes" name="notes" rows="4"></textarea>
+        </div>
+
+        <button type="submit" class="btn">Create Workout</button>
+        <a href="/" class="btn btn-secondary">Cancel</a>
+    </form>
+
+    <script>
+        // Set today's date as default
+        document.getElementById('date').valueAsDate = new Date();
+        
+        function selectTemplate(templateName, templateId) {
+            // Remove previous selection
+            document.querySelectorAll('.template-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            
+            // Add selection to clicked card
+            event.target.closest('.template-card').classList.add('selected');
+            
+            // Set the template ID in the hidden field
+            document.getElementById('template_id').value = templateId;
+            
+            // Pre-fill the workout name with template name
+            document.getElementById('name').value = templateName;
+        }
+    </script>
+</body>
+</html>

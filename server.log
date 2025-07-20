@@ -1,0 +1,3 @@
+2025/07/19 11:08:42 ⚠️  Google OAuth not configured - set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET environment variables
+2025/07/19 11:08:42    OAuth login will be disabled until credentials are provided
+2025/07/19 11:08:42 Simple server starting on :8080

@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{.Title}} - Workout Tracker</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; background-color: #f8f9fa; }
+        .header { background: #e74c3c; color: white; padding: 20px; margin-bottom: 30px; border-radius: 5px; }
+        .btn { background: #e74c3c; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; border: none; cursor: pointer; }
+        .btn:hover { background: #c0392b; }
+        .btn-success { background: #28a745; }
+        .btn-success:hover { background: #218838; }
+        .workout-card { background: white; border: 1px solid #ddd; padding: 20px; margin: 20px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .exercise-section { margin-bottom: 30px; }
+        .exercise-title { color: #e74c3c; border-bottom: 2px solid #e74c3c; padding-bottom: 10px; margin-bottom: 20px; }
+        .set-form { background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 10px 0; }
+        .form-row { display: flex; gap: 15px; margin-bottom: 15px; }
+        .form-group { flex: 1; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; color: #333; }
+        .form-group input, .form-group select { 
+            width: 100%; 
+            padding: 8px; 
+            border: 1px solid #ddd; 
+            border-radius: 4px; 
+            box-sizing: border-box;
+        }
+        .existing-sets { margin-bottom: 20px; }
+        .set-row { display: flex; justify-content: space-between; align-items: center; padding: 8px; background: #e9ecef; margin: 5px 0; border-radius: 4px; }
+        .set-details { flex: 1; }
+        .workout-info { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .back-link { display: inline-block; margin-bottom: 20px; }
+        .rpe-guide { font-size: 12px; color: #666; margin-top: 5px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h1>{{.Title}}</h1>
+            <div>
+                Welcome, {{.Username}}! 
+                <form method="POST" action="/logout" style="display: inline; margin-left: 15px;">
+                    <button type="submit" class="btn" style="background: #6c757d;">Logout</button>
+                </form>
+            </div>
+        </div>
+        <div style="margin-top: 15px;">
+            <a href="/" class="btn">🏠 Home</a>
+        </div>
+    </div>
+
+    <a href="/" class="back-link btn">← Back to Workouts</a>
+
+    <div class="workout-info">
+        <h2>{{.Workout.Name}}</h2>
+        <p><strong>Date:</strong> {{.Workout.Date.Format "January 2, 2006"}}</p>
+        {{if .Workout.Notes}}<p><strong>Notes:</strong> {{.Workout.Notes}}</p>{{end}}
+    </div>
+
+    {{if .Workout.Exercises}}
+        {{range .Workout.Exercises}}
+        <div class="workout-card exercise-section">
+            <h3 class="exercise-title">{{.Name}}</h3>
+            
+            <!-- Show existing sets -->
+            {{if .WorkoutSets}}
+            <div class="existing-sets">
+                <h4>Logged Sets:</h4>
+                {{range .WorkoutSets}}
+                <div class="set-row">
+                    <div class="set-details">
+                        <strong>Set {{.SetNumber}}:</strong> 
+                        {{if gt .Weight 0}}{{.Weight}} lbs × {{end}}{{.Reps}} reps
+                        {{if gt .RPE 0}} (RPE: {{.RPE}}){{end}}
+                        {{if .Notes}} - {{.Notes}}{{end}}
+                    </div>
+                </div>
+                {{end}}
+            </div>
+            {{end}}
+
+            <!-- Form to add new set -->
+            <div class="set-form">
+                <h4>Log New Set:</h4>
+                <form method="POST">
+                    <input type="hidden" name="exercise_id" value="{{.ID}}">
+                    <input type="hidden" name="workout_id" value="{{.WorkoutID}}">
+                    <input type="hidden" name="exercise_name" value="{{.Name}}">
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="set_number_{{.ID}}">Set Number:</label>
+                            <input type="number" id="set_number_{{.ID}}" name="set_number" value="{{len .WorkoutSets | add 1}}" min="1" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="weight_{{.ID}}">Weight (lbs):</label>
+                            <input type="number" id="weight_{{.ID}}" name="weight" step="0.5" min="0" placeholder="0">
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="reps_{{.ID}}">Reps:</label>
+                            <input type="number" id="reps_{{.ID}}" name="reps" min="1" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="rpe_{{.ID}}">RPE (1-10):</label>
+                            <select id="rpe_{{.ID}}" name="rpe">
+                                <option value="">None</option>
+                                <option value="1">1 - Very Easy</option>
+                                <option value="2">2 - Easy</option>
+                                <option value="3">3 - Moderate</option>
+                                <option value="4">4 - Somewhat Hard</option>
+                                <option value="5">5 - Hard</option>
+                                <option value="6">6 - Harder</option>
+                                <option value="7">7 - Very Hard</option>
+                                <option value="8">8 - Very Very Hard</option>
+                                <option value="9">9 - Extremely Hard</option>
+                                <option value="10">10 - Maximum Effort</option>
+                            </select>
+                            <div class="rpe-guide">RPE = Rate of Perceived Exertion</div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="notes_{{.ID}}">Notes (optional):</label>
+                        <input type="text" id="notes_{{.ID}}" name="notes" placeholder="Any additional notes...">
+                    </div>
+                    
+                    <button type="submit" class="btn btn-success">Log Set</button>
+                </form>
+            </div>
+        </div>
+        {{end}}
+    {{else}}
+        <div class="workout-card">
+            <p>No exercises found for this workout. <a href="/edit/{{.Workout.ID}}">Add some exercises</a> to get started!</p>
+        </div>
+    {{end}}
+
+    <div style="text-align: center; margin-top: 30px;">
+        <a href="/" class="btn">Finish Workout</a>
+    </div>
+
+    <script>
+        // Auto-focus on the first weight input
+        document.addEventListener('DOMContentLoaded', function() {
+            const firstWeightInput = document.querySelector('input[name="weight"]');
+            if (firstWeightInput) {
+                firstWeightInput.focus();
+            }
+        });
+
+        // Add function to template for incrementing set numbers
+        function add(a, b) {
+            return a + b;
+        }
+    </script>
+</body>
+</html>

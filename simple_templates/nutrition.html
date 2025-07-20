@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{.Title}} - Workout Tracker</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .macro-progress {
+            transition: width 0.3s ease;
+        }
+        
+        .food-suggestion {
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .food-suggestion:hover {
+            background-color: #f3f4f6;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Navigation -->
+    <nav class="bg-blue-600 text-white p-4 shadow-lg">
+        <div class="container mx-auto flex justify-between items-center">
+            <div class="flex items-center space-x-4">
+                <a href="/" class="text-xl font-bold hover:text-blue-200">💪 Workout Tracker</a>
+                <span class="text-blue-200">/ {{.Title}}</span>
+            </div>
+            <div class="flex items-center space-x-4">
+                <span class="text-blue-200">Welcome, {{.Username}}!</span>
+                <a href="/progress" class="hover:text-blue-200">Progress</a>
+                <a href="/schedule" class="hover:text-blue-200">Schedule</a>
+                <a href="/nutrition" class="text-white font-semibold">Nutrition</a>
+                <a href="/body-composition" class="hover:text-blue-200">Body Tracking</a>
+                <a href="/analytics" class="hover:text-blue-200">Analytics</a>
+                <form method="POST" action="/logout" class="inline">
+                    <button type="submit" class="hover:text-blue-200">Logout</button>
+                </form>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mx-auto px-4 py-8">
+        <!-- Daily Summary -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            <!-- Calories -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h3 class="text-lg font-semibold mb-4 text-gray-800 flex items-center">
+                    <i class="fas fa-fire text-orange-500 mr-2"></i>
+                    Calories
+                </h3>
+                <div class="text-3xl font-bold text-gray-900 mb-2">
+                    {{.DailySummary.TotalCalories}} <span class="text-sm text-gray-500">/ {{.DailySummary.CalorieGoal}}</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-3">
+                    <div class="bg-orange-500 h-3 rounded-full macro-progress" 
+                         style="width: {{if gt .DailySummary.CalorieGoal 0}}{{div (mul .DailySummary.TotalCalories 100) .DailySummary.CalorieGoal}}{{else}}0{{end}}%"></div>
+                </div>
+                <p class="text-sm text-gray-600 mt-2">
+                    {{sub .DailySummary.CalorieGoal .DailySummary.TotalCalories}} remaining
+                </p>
+            </div>
+
+            <!-- Macros -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h3 class="text-lg font-semibold mb-4 text-gray-800">Macronutrients</h3>
+                
+                <!-- Protein -->
+                <div class="mb-4">
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-sm font-medium text-blue-600">Protein</span>
+                        <span class="text-sm text-gray-600">{{printf "%.1f" .DailySummary.TotalProtein}}g / {{printf "%.1f" .DailySummary.ProteinGoal}}g</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2">
+                        <div class="bg-blue-500 h-2 rounded-full" 
+                             style="width: {{if gt .DailySummary.ProteinGoal 0}}{{div (mul .DailySummary.TotalProtein 100) .DailySummary.ProteinGoal}}{{else}}0{{end}}%"></div>
+                    </div>
+                </div>
+                
+                <!-- Carbs -->
+                <div class="mb-4">
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-sm font-medium text-green-600">Carbs</span>
+                        <span class="text-sm text-gray-600">{{printf "%.1f" .DailySummary.TotalCarbs}}g / {{printf "%.1f" .DailySummary.CarbsGoal}}g</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2">
+                        <div class="bg-green-500 h-2 rounded-full" 
+                             style="width: {{if gt .DailySummary.CarbsGoal 0}}{{div (mul .DailySummary.TotalCarbs 100) .DailySummary.CarbsGoal}}{{else}}0{{end}}%"></div>
+                    </div>
+                </div>
+                
+                <!-- Fat -->
+                <div class="mb-4">
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-sm font-medium text-yellow-600">Fat</span>
+                        <span class="text-sm text-gray-600">{{printf "%.1f" .DailySummary.TotalFat}}g / {{printf "%.1f" .DailySummary.FatGoal}}g</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2">
+                        <div class="bg-yellow-500 h-2 rounded-full" 
+                             style="width: {{if gt .DailySummary.FatGoal 0}}{{div (mul .DailySummary.TotalFat 100) .DailySummary.FatGoal}}{{else}}0{{end}}%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Stats -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h3 class="text-lg font-semibold mb-4 text-gray-800 flex items-center">
+                    <i class="fas fa-chart-line text-blue-500 mr-2"></i>
+                    Today's Stats
+                </h3>
+                <div class="space-y-3">
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Meals Logged:</span>
+                        <span class="font-medium">{{len .Entries}}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Water Intake:</span>
+                        <span class="font-medium">{{printf "%.1f" .DailySummary.WaterIntake}}L</span>
+                    </div>
+                    {{if .DailySummary.WeightKg}}
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Weight:</span>
+                        <span class="font-medium">{{printf "%.1f" .DailySummary.WeightKg}} kg</span>
+                    </div>
+                    {{end}}
+                    </div>
+                </div>
+                <div class="mt-4 pt-4 border-t border-gray-200">
+                    <a href="/body-composition" class="text-orange-600 hover:text-orange-800 text-sm font-medium flex items-center">
+                        <i class="fas fa-weight mr-1"></i>
+                        Track Body Composition →
+                    </a>
+                </div>
+            </div>
+        </div>
+        <!-- Add Food Entry Form -->
+        <div class="bg-white rounded-lg shadow p-6 mb-8">
+            <h2 class="text-xl font-semibold mb-4 text-gray-800 flex items-center">
+                <i class="fas fa-plus text-green-500 mr-2"></i>
+                Add Food Entry
+            </h2>
+            
+            <form method="POST" action="/nutrition" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Date</label>
+                    <input type="date" name="date" value="{{.Today}}" 
+                           class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Meal Type</label>
+                    <select name="meal_type" required 
+                            class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Select Meal</option>
+                        <option value="breakfast">Breakfast</option>
+                        <option value="lunch">Lunch</option>
+                        <option value="dinner">Dinner</option>
+                        <option value="snack">Snack</option>
+                    </select>
+                </div>
+
+                <div class="relative">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Food Name</label>
+                    <input type="text" name="food_name" id="food_name" required
+                           class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                           placeholder="Enter food name" autocomplete="off">
+                    <div id="food_suggestions" class="absolute top-full left-0 right-0 bg-white border border-gray-300 rounded-lg shadow-lg mt-1 max-h-60 overflow-y-auto hidden z-10">
+                    </div>
+                </div>
+
+                <div class="flex space-x-2">
+                    <div class="flex-1">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Quantity</label>
+                        <input type="number" name="quantity" step="0.1" required
+                               class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                               placeholder="100">
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Unit</label>
+                        <select name="unit" required 
+                                class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="g">grams</option>
+                            <option value="oz">ounces</option>
+                            <option value="cups">cups</option>
+                            <option value="pieces">pieces</option>
+                            <option value="ml">ml</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Calories</label>
+                    <input type="number" name="calories" required
+                           class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                           placeholder="100">
+                </div>
+
+                <div class="grid grid-cols-3 gap-2">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Protein (g)</label>
+                        <input type="number" name="protein" step="0.1"
+                               class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                               placeholder="0">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Carbs (g)</label>
+                        <input type="number" name="carbs" step="0.1"
+                               class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                               placeholder="0">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Fat (g)</label>
+                        <input type="number" name="fat" step="0.1"
+                               class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                               placeholder="0">
+                    </div>
+                </div>
+
+                <div class="md:col-span-2 lg:col-span-3">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Notes (optional)</label>
+                    <textarea name="notes" rows="2" 
+                              class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              placeholder="Additional notes..."></textarea>
+                </div>
+
+                <div class="md:col-span-2 lg:col-span-3">
+                    <button type="submit" 
+                            class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition duration-200 flex items-center">
+                        <i class="fas fa-plus mr-2"></i>
+                        Add Food Entry
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Today's Entries -->
+        <div class="bg-white rounded-lg shadow overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h2 class="text-xl font-semibold text-gray-800 flex items-center">
+                    <i class="fas fa-list text-blue-500 mr-2"></i>
+                    Today's Food Entries
+                </h2>
+            </div>
+
+            {{if .Entries}}
+                <div class="divide-y divide-gray-200">
+                    {{range .Entries}}
+                    <div class="px-6 py-4 hover:bg-gray-50">
+                        <div class="flex justify-between items-start">
+                            <div class="flex-1">
+                                <div class="flex items-center space-x-3">
+                                    <span class="inline-block w-3 h-3 rounded-full {{if eq .MealType "breakfast"}}bg-yellow-400{{else if eq .MealType "lunch"}}bg-blue-400{{else if eq .MealType "dinner"}}bg-green-400{{else}}bg-purple-400{{end}}"></span>
+                                    <h3 class="text-lg font-medium text-gray-900">{{.FoodName}}</h3>
+                                    <span class="text-sm text-gray-500 capitalize bg-gray-100 px-2 py-1 rounded">{{.MealType}}</span>
+                                </div>
+                                <div class="mt-2 flex items-center space-x-6 text-sm text-gray-600">
+                                    <span class="flex items-center">
+                                        <i class="fas fa-weight text-gray-400 mr-1"></i>
+                                        {{printf "%.1f" .Quantity}} {{.Unit}}
+                                    </span>
+                                    <span class="flex items-center">
+                                        <i class="fas fa-fire text-orange-400 mr-1"></i>
+                                        {{.Calories}} cal
+                                    </span>
+                                    <span class="flex items-center">
+                                        <i class="fas fa-dumbbell text-blue-400 mr-1"></i>
+                                        P: {{printf "%.1f" .Protein}}g
+                                    </span>
+                                    <span class="flex items-center">
+                                        <i class="fas fa-seedling text-green-400 mr-1"></i>
+                                        C: {{printf "%.1f" .Carbs}}g
+                                    </span>
+                                    <span class="flex items-center">
+                                        <i class="fas fa-tint text-yellow-400 mr-1"></i>
+                                        F: {{printf "%.1f" .Fat}}g
+                                    </span>
+                                </div>
+                                {{if .Notes}}
+                                <p class="mt-2 text-sm text-gray-600 italic">{{.Notes}}</p>
+                                {{end}}
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <span class="text-xs text-gray-400">{{.CreatedAt.Format "15:04"}}</span>
+                                <form method="POST" action="/nutrition/entry/{{.ID}}/delete" class="inline">
+                                    <button type="submit" 
+                                            onclick="return confirm('Delete this entry?')"
+                                            class="text-red-500 hover:text-red-700 p-1">
+                                        <i class="fas fa-trash text-sm"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    {{end}}
+                </div>
+            {{else}}
+                <div class="px-6 py-12 text-center text-gray-500">
+                    <i class="fas fa-utensils text-4xl mb-4 text-gray-300"></i>
+                    <p class="text-lg mb-2">No food entries for today</p>
+                    <p class="text-sm">Start tracking your nutrition by adding your first meal above!</p>
+                </div>
+            {{end}}
+        </div>
+    </div>
+
+    <script>
+        // Food database for autocomplete
+        const foodDatabase = [
+            {{range .FoodItems}}
+            {
+                name: "{{.Name}}",
+                brand: "{{.Brand}}",
+                category: "{{.Category}}",
+                servingSize: {{.ServingSize}},
+                servingUnit: "{{.ServingUnit}}",
+                caloriesPer100g: {{.CaloriesPer100g}},
+                proteinPer100g: {{.ProteinPer100g}},
+                carbsPer100g: {{.CarbsPer100g}},
+                fatPer100g: {{.FatPer100g}}
+            },
+            {{end}}
+        ];
+
+        const foodNameInput = document.getElementById('food_name');
+        const suggestionsDiv = document.getElementById('food_suggestions');
+
+        foodNameInput.addEventListener('input', function() {
+            const query = this.value.toLowerCase();
+            if (query.length < 2) {
+                suggestionsDiv.classList.add('hidden');
+                return;
+            }
+
+            const matches = foodDatabase.filter(food => 
+                food.name.toLowerCase().includes(query) || 
+                food.brand.toLowerCase().includes(query)
+            ).slice(0, 10);
+
+            if (matches.length > 0) {
+                suggestionsDiv.innerHTML = matches.map(food => `
+                    <div class="food-suggestion p-3 border-b border-gray-200 last:border-b-0" 
+                         data-food='${JSON.stringify(food)}'>
+                        <div class="font-medium">${food.name} ${food.brand ? '(' + food.brand + ')' : ''}</div>
+                        <div class="text-sm text-gray-600">${food.category} • ${food.caloriesPer100g} cal per 100g</div>
+                    </div>
+                `).join('');
+                suggestionsDiv.classList.remove('hidden');
+            } else {
+                suggestionsDiv.classList.add('hidden');
+            }
+        });
+
+        suggestionsDiv.addEventListener('click', function(e) {
+            const suggestionElement = e.target.closest('.food-suggestion');
+            if (suggestionElement) {
+                const food = JSON.parse(suggestionElement.dataset.food);
+                
+                // Fill in the form with selected food data
+                document.getElementById('food_name').value = food.name;
+                document.querySelector('input[name="quantity"]').value = food.servingSize;
+                document.querySelector('select[name="unit"]').value = food.servingUnit;
+                
+                // Calculate nutrition based on serving size
+                const ratio = food.servingSize / 100;
+                document.querySelector('input[name="calories"]').value = Math.round(food.caloriesPer100g * ratio);
+                document.querySelector('input[name="protein"]').value = (food.proteinPer100g * ratio).toFixed(1);
+                document.querySelector('input[name="carbs"]').value = (food.carbsPer100g * ratio).toFixed(1);
+                document.querySelector('input[name="fat"]').value = (food.fatPer100g * ratio).toFixed(1);
+                
+                suggestionsDiv.classList.add('hidden');
+            }
+        });
+
+        // Hide suggestions when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!foodNameInput.contains(e.target) && !suggestionsDiv.contains(e.target)) {
+                suggestionsDiv.classList.add('hidden');
+            }
+        });
+
+        // Update nutrition values when quantity changes
+        document.querySelector('input[name="quantity"]').addEventListener('input', function() {
+            const foodName = document.getElementById('food_name').value;
+            const quantity = parseFloat(this.value);
+            
+            if (quantity && foodName) {
+                const matchedFood = foodDatabase.find(food => food.name === foodName);
+                if (matchedFood) {
+                    const ratio = quantity / 100;
+                    document.querySelector('input[name="calories"]').value = Math.round(matchedFood.caloriesPer100g * ratio);
+                    document.querySelector('input[name="protein"]').value = (matchedFood.proteinPer100g * ratio).toFixed(1);
+                    document.querySelector('input[name="carbs"]').value = (matchedFood.carbsPer100g * ratio).toFixed(1);
+                    document.querySelector('input[name="fat"]').value = (matchedFood.fatPer100g * ratio).toFixed(1);
+                }
+            }
+        });
+    </script>
+</body>
+</html>

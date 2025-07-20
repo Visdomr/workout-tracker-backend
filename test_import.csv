@@ -1,0 +1,9 @@
+Workout ID,Date,Workout Name,Exercise Name,Set Number,Reps,Weight,RPE,Notes,Duration,Workout Notes
+1,2025-07-19,Test Push Workout,Bench Press,1,10,135.0,8,Felt strong today,45,Great workout to start the week
+1,2025-07-19,Test Push Workout,Bench Press,2,8,145.0,9,Getting heavy,45,Great workout to start the week
+1,2025-07-19,Test Push Workout,Incline Press,1,12,100.0,7,Good form,45,Great workout to start the week
+1,2025-07-19,Test Push Workout,Incline Press,2,10,105.0,8,Slight fatigue,45,Great workout to start the week
+2,2025-07-18,Test Pull Workout,Pull-ups,1,8,0.0,9,Bodyweight,35,Back focused session
+2,2025-07-18,Test Pull Workout,Pull-ups,2,6,0.0,10,Max effort,35,Back focused session
+2,2025-07-18,Test Pull Workout,Barbell Rows,1,12,95.0,7,Perfect form,35,Back focused session
+2,2025-07-18,Test Pull Workout,Barbell Rows,2,10,105.0,8,Good squeeze,35,Back focused session

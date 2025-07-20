@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  workout-tracker:
+    build: .
+    container_name: workout-tracker
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - DATABASE_PATH=/app/data/workout_tracker.db
+      - SESSION_SECRET=workout-secret-key-change-in-production
+    volumes:
+      # Persist database data
+      - workout_data:/app/data
+      # Optional: mount config for easier development
+      # - ./.env:/app/.env:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    # Optional: Add resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          memory: 128M
+
+volumes:
+  workout_data:
+    driver: local

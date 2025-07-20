@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{.Title}}</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; background-color: #f8f9fa; }
+        .container { max-width: 400px; margin: 100px auto; background: white; padding: 40px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .btn { background: #e74c3c; color: white; padding: 12px 20px; border: none; border-radius: 5px; cursor: pointer; width: 100%; }
+        .btn:hover { background: #c0392b; }
+        input[type="text"], input[type="email"], input[type="password"] { 
+            width: 100%; 
+            padding: 12px; 
+            margin: 8px 0 16px 0; 
+            border: 1px solid #ddd; 
+            border-radius: 4px; 
+            box-sizing: border-box;
+        }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        .header { text-align: center; color: #e74c3c; margin-bottom: 30px; }
+        .links { text-align: center; margin-top: 20px; }
+        .links a { color: #e74c3c; text-decoration: none; }
+        .password-requirements {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 10px 0;
+            font-size: 14px;
+        }
+        .password-requirements ul {
+            margin: 5px 0 0 0;
+            padding-left: 20px;
+        }
+        .password-requirements li {
+            margin: 5px 0;
+            color: #dc3545;
+        }
+        .password-requirements li.valid {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .password-requirements li.invalid {
+            color: #dc3545;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Workout Tracker</h1>
+            <h2>Register</h2>
+        </div>
+        
+        <form method="POST">
+            <label for="username">Username:</label>
+            <input type="text" id="username" name="username" required>
+            
+            <label for="email">Email:</label>
+            <input type="email" id="email" name="email" required>
+            
+            <label for="password">Password:</label>
+            <input type="password" id="password" name="password" required minlength="8" maxlength="128">
+            <div class="password-requirements">
+                <p><strong>Password Requirements:</strong></p>
+                <ul>
+                    <li id="length">At least 8 characters</li>
+                    <li id="uppercase">At least one uppercase letter (A-Z)</li>
+                    <li id="lowercase">At least one lowercase letter (a-z)</li>
+                    <li id="number">At least one number (0-9)</li>
+                    <li id="special">At least one special character (!@#$%^&*()etc.)</li>
+                </ul>
+            </div>
+            
+            <button type="submit" class="btn">Register</button>
+        </form>
+        
+        <div class="links">
+            <p>Already have an account? <a href="/login">Login here</a></p>
+        </div>
+    </div>
+
+    <script>
+        function validatePassword() {
+            const password = document.getElementById('password').value;
+            
+            // Length check
+            const lengthElement = document.getElementById('length');
+            if (password.length >= 8) {
+                lengthElement.classList.remove('invalid');
+                lengthElement.classList.add('valid');
+            } else {
+                lengthElement.classList.remove('valid');
+                lengthElement.classList.add('invalid');
+            }
+            
+            // Uppercase check
+            const uppercaseElement = document.getElementById('uppercase');
+            if (/[A-Z]/.test(password)) {
+                uppercaseElement.classList.remove('invalid');
+                uppercaseElement.classList.add('valid');
+            } else {
+                uppercaseElement.classList.remove('valid');
+                uppercaseElement.classList.add('invalid');
+            }
+            
+            // Lowercase check
+            const lowercaseElement = document.getElementById('lowercase');
+            if (/[a-z]/.test(password)) {
+                lowercaseElement.classList.remove('invalid');
+                lowercaseElement.classList.add('valid');
+            } else {
+                lowercaseElement.classList.remove('valid');
+                lowercaseElement.classList.add('invalid');
+            }
+            
+            // Number check
+            const numberElement = document.getElementById('number');
+            if (/[0-9]/.test(password)) {
+                numberElement.classList.remove('invalid');
+                numberElement.classList.add('valid');
+            } else {
+                numberElement.classList.remove('valid');
+                numberElement.classList.add('invalid');
+            }
+            
+            // Special character check
+            const specialElement = document.getElementById('special');
+            if (/[!@#$%^&*()\-_=+\[\]{}|;:'",.<>?/]/.test(password)) {
+                specialElement.classList.remove('invalid');
+                specialElement.classList.add('valid');
+            } else {
+                specialElement.classList.remove('valid');
+                specialElement.classList.add('invalid');
+            }
+        }
+        
+        document.getElementById('password').addEventListener('input', validatePassword);
+        
+        // Initialize validation state
+        document.addEventListener('DOMContentLoaded', function() {
+            validatePassword();
+        });
+    </script>
+</body>
+</html>

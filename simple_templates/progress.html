@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{.Title}}</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .header { background: #e74c3c; color: white; padding: 20px; margin-bottom: 30px; border-radius: 5px; }
+        .btn { background: #e74c3c; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-right: 10px; }
+        .btn-secondary { background: #6c757d; }
+        .user-info { float: right; }
+        .logout-btn { background: #6c757d; }
+        
+        /* Tab styles */
+        .tab-container { margin: 20px 0; }
+        .tab-buttons { display: flex; border-bottom: 3px solid #ddd; margin-bottom: 20px; }
+        .tab-btn { 
+            padding: 15px 25px; 
+            background: #f8f9fa; 
+            border: none; 
+            cursor: pointer; 
+            font-size: 16px; 
+            font-weight: bold;
+            border-radius: 8px 8px 0 0;
+            margin-right: 5px;
+            transition: all 0.3s;
+        }
+        .tab-btn.active { 
+            background: #e74c3c; 
+            color: white; 
+            border-bottom: 3px solid #e74c3c;
+        }
+        .tab-btn:hover:not(.active) { background: #e9ecef; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        
+        /* Strength styles */
+        .lift-card { border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 8px; background: white; }
+        .lift-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; margin: 20px 0; }
+        .category-header { background: #f8f9fa; padding: 10px; margin: 20px 0 10px 0; border-left: 4px solid #e74c3c; font-weight: bold; }
+        .muscle-groups { color: #666; font-size: 14px; margin: 5px 0; }
+        .equipment { background: #e74c3c; color: white; padding: 2px 8px; border-radius: 3px; font-size: 12px; }
+        .form-notes { background: #f8f9fa; padding: 10px; border-radius: 4px; margin-top: 10px; font-size: 14px; }
+        
+        /* Cardio styles */
+        .cardio-card { border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 8px; background: white; }
+        .cardio-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; margin: 20px 0; }
+        .cardio-category-header { background: #f0f8ff; padding: 10px; margin: 20px 0 10px 0; border-left: 4px solid #007bff; font-weight: bold; }
+        .metrics { color: #666; font-size: 14px; margin: 5px 0; }
+        .activity-type { background: #007bff; color: white; padding: 2px 8px; border-radius: 3px; font-size: 12px; }
+        
+        /* Records styles */
+        .pr-section { background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 30px 0; }
+        .pr-item { background: white; padding: 15px; margin: 10px 0; border-radius: 4px; border-left: 4px solid #28a745; }
+        .cardio-record-item { background: white; padding: 15px; margin: 10px 0; border-radius: 4px; border-left: 4px solid #007bff; }
+        .record-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h1>📊 {{.Title}}</h1>
+            <div class="user-info">
+                Welcome, {{.Username}}! 
+                <form method="POST" action="/logout" style="display: inline;">
+                    <button type="submit" class="btn logout-btn">Logout</button>
+                </form>
+            </div>
+        </div>
+        <div style="clear: both; margin-top: 15px;">
+            <a href="/" class="btn">🏠 Home</a>
+            <a href="/create" class="btn">+ New Workout</a>
+            <a href="/body-composition" class="btn" style="background: #fd7e14;">📏 Body Tracking</a>
+            <a href="/analytics" class="btn" style="background: #6f42c1;">📈 Analytics</a>
+        </div>
+    </div>
+
+    <!-- Analytics Dashboard -->
+    <div style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <h2 style="color: #e74c3c; margin-top: 0;">📊 Your Fitness Analytics</h2>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 20px 0;">
+            <div class="stat-card" style="background: #f8f9fa; padding: 15px; border-radius: 5px; text-align: center; border: 2px solid #e74c3c;">
+                <div style="font-size: 24px; font-weight: bold; color: #e74c3c;">{{.WorkoutStats.TotalWorkouts}}</div>
+                <div style="color: #666; font-size: 14px;">Total Workouts</div>
+            </div>
+            <div class="stat-card" style="background: #f8f9fa; padding: 15px; border-radius: 5px; text-align: center; border: 2px solid #28a745;">
+                <div style="font-size: 24px; font-weight: bold; color: #28a745;">{{.WorkoutStats.WorkoutsThisWeek}}</div>
+                <div style="color: #666; font-size: 14px;">This Week</div>
+            </div>
+            <div class="stat-card" style="background: #f8f9fa; padding: 15px; border-radius: 5px; text-align: center; border: 2px solid #007bff;">
+                <div style="font-size: 24px; font-weight: bold; color: #007bff;">{{.WorkoutStats.WorkoutsThisMonth}}</div>
+                <div style="color: #666; font-size: 14px;">This Month</div>
+            </div>
+            <div class="stat-card" style="background: #f8f9fa; padding: 15px; border-radius: 5px; text-align: center; border: 2px solid #ffc107;">
+                <div style="font-size: 24px; font-weight: bold; color: #ffc107;">{{printf "%.1f" .WorkoutStats.AverageWorkoutsPerWeek}}</div>
+                <div style="color: #666; font-size: 14px;">Avg/Week (12wks)</div>
+            </div>
+            <div class="stat-card" style="background: #f8f9fa; padding: 15px; border-radius: 5px; text-align: center; border: 2px solid #6f42c1;">
+                <div style="font-size: 24px; font-weight: bold; color: #6f42c1;">{{.WorkoutStats.TotalSets}}</div>
+                <div style="color: #666; font-size: 14px;">Total Sets</div>
+            </div>
+            <div class="stat-card" style="background: #f8f9fa; padding: 15px; border-radius: 5px; text-align: center; border: 2px solid #fd7e14;">
+                <div style="font-size: 24px; font-weight: bold; color: #fd7e14;">{{.WorkoutStats.TotalReps}}</div>
+                <div style="color: #666; font-size: 14px;">Total Reps</div>
+            </div>
+            <div class="stat-card" style="background: #f8f9fa; padding: 15px; border-radius: 5px; text-align: center; border: 2px solid #20c997;">
+                <div style="font-size: 20px; font-weight: bold; color: #20c997;">{{printf "%.0f" .WorkoutStats.TotalWeightLifted}} lbs</div>
+                <div style="color: #666; font-size: 14px;">Weight Lifted</div>
+            </div>
+            <div class="stat-card" style="background: #f8f9fa; padding: 15px; border-radius: 5px; text-align: center; border: 2px solid #dc3545;">
+                <div style="font-size: 18px; font-weight: bold; color: #dc3545;">{{.WorkoutStats.MostActiveDay}}</div>
+                <div style="color: #666; font-size: 14px;">Most Active Day</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="tab-container">
+        <div class="tab-buttons">
+            <button class="tab-btn active" onclick="showTab('strength')">💪 Strength</button>
+            <button class="tab-btn" onclick="showTab('cardio')">🏃 Cardio</button>
+            <button class="tab-btn" onclick="showTab('body')">📏 Body Tracking</button>
+            <button class="tab-btn" onclick="showTab('records')">🏆 Records</button>
+            <button class="tab-btn" onclick="showTab('export')">📤 Export / Import</button>
+        </div>
+
+        <!-- Strength Tab -->
+        <div id="strength" class="tab-content active">
+            <h2>Exercise Database</h2>
+            <p>Browse our comprehensive exercise database with form tips and muscle group targets:</p>
+
+            {{$currentCategory := ""}}
+            {{range .Lifts}}
+                {{if ne .Category $currentCategory}}
+                    {{$currentCategory = .Category}}
+                    <div class="category-header">{{.Category}} Exercises</div>
+                {{end}}
+                
+                <div class="lift-card">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                        <div style="flex: 1;">
+                            <h3 style="margin: 0 0 10px 0; color: #e74c3c;">{{.Name}}</h3>
+                            <div class="muscle-groups">🎯 <strong>Targets:</strong> {{.MuscleGroups}}</div>
+                            <div style="margin: 10px 0;">
+                                <span class="equipment">{{.Equipment}}</span>
+                            </div>
+                            <p style="margin: 10px 0;">{{.Description}}</p>
+                            {{if .FormNotes}}
+                            <div class="form-notes">
+                                <strong>💡 Form Tips:</strong><br>
+                                {{.FormNotes}}
+                            </div>
+                            {{end}}
+                        </div>
+                    </div>
+                </div>
+            {{end}}
+
+            {{if not .Lifts}}
+            <div style="text-align: center; padding: 40px;">
+                <h3>No exercises found</h3>
+                <p>The exercise database is being loaded...</p>
+            </div>
+            {{end}}
+        </div>
+
+        <!-- Cardio Tab -->
+        <div id="cardio" class="tab-content">
+            <h2>Cardio Activities</h2>
+            <p>Explore various cardio activities to track your endurance and speed progress:</p>
+
+            {{$currentCardioCategory := ""}}
+            {{range .CardioActivities}}
+                {{if ne .Category $currentCardioCategory}}
+                    {{$currentCardioCategory = .Category}}
+                    <div class="cardio-category-header">{{.Category}} Activities</div>
+                {{end}}
+                
+                <div class="cardio-card">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                        <div style="flex: 1;">
+                            <h3 style="margin: 0 0 10px 0; color: #007bff;">{{.Name}}</h3>
+                            <div class="metrics">📊 <strong>Track:</strong> {{.Metrics}}</div>
+                            <div style="margin: 10px 0;">
+                                <span class="activity-type">{{.Category}}</span>
+                            </div>
+                            <p style="margin: 10px 0;">{{.Description}}</p>
+                        </div>
+                    </div>
+                </div>
+            {{end}}
+
+            {{if not .CardioActivities}}
+            <div style="text-align: center; padding: 40px;">
+                <h3>No cardio activities found</h3>
+                <p>The cardio database is being loaded...</p>
+            </div>
+            {{end}}
+        </div>
+
+        <!-- Body Tracking Tab -->
+        <div id="body" class="tab-content">
+            <h2>📏 Body Composition & Measurements</h2>
+            <p>Track your physical progress with comprehensive body composition and measurement logging:</p>
+            
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; margin: 20px 0;">
+                <!-- Body Composition Card -->
+                <div style="background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); border-left: 5px solid #fd7e14;">
+                    <div style="text-align: center; margin-bottom: 20px;">
+                        <div style="font-size: 48px; margin-bottom: 15px;">⚖️</div>
+                        <h3 style="color: #fd7e14; margin: 10px 0;">Body Composition</h3>
+                        <p style="color: #666; margin-bottom: 20px;">Track weight, body fat %, muscle mass, BMI, and more</p>
+                    </div>
+                    
+                    <div style="background: #fff7ed; padding: 15px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; color: #9a3412; line-height: 1.5;">
+                        <strong>📊 Track:</strong><br>
+                        • Weight (kg/lbs)<br>
+                        • Body Fat Percentage<br>
+                        • Muscle Mass<br>
+                        • BMI & Body Water<br>
+                        • Progress trends over time
+                    </div>
+                    
+                    <div style="text-align: center;">
+                        <a href="/body-composition" class="btn" style="background: #fd7e14; padding: 15px 25px; font-size: 16px;">📊 Record Composition</a>
+                    </div>
+                </div>
+                
+                <!-- Body Measurements Card -->
+                <div style="background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); border-left: 5px solid #10b981;">
+                    <div style="text-align: center; margin-bottom: 20px;">
+                        <div style="font-size: 48px; margin-bottom: 15px;">📏</div>
+                        <h3 style="color: #10b981; margin: 10px 0;">Body Measurements</h3>
+                        <p style="color: #666; margin-bottom: 20px;">Monitor circumference measurements for progress tracking</p>
+                    </div>
+                    
+                    <div style="background: #ecfdf5; padding: 15px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; color: #065f46; line-height: 1.5;">
+                        <strong>📐 Measure:</strong><br>
+                        • Chest, Waist, Hips<br>
+                        • Bicep, Forearm, Thigh<br>
+                        • Neck, Shoulders, Calves<br>
+                        • Progress photos support<br>
+                        • Metric & Imperial units
+                    </div>
+                    
+                    <div style="text-align: center;">
+                        <a href="/body-measurements" class="btn" style="background: #10b981; padding: 15px 25px; font-size: 16px;">📏 Take Measurements</a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Integration Info -->
+            <div style="background: #f1f5f9; padding: 20px; border-radius: 8px; border-left: 4px solid #3b82f6; margin: 30px 0;">
+                <h4 style="color: #1e40af; margin-top: 0;">📈 Analytics Integration</h4>
+                <p style="color: #1e40af; line-height: 1.6; margin: 10px 0;">Your body tracking data automatically integrates with the <a href="/analytics" style="color: #1d4ed8; font-weight: bold;">Analytics Dashboard</a> to provide:</p>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin: 15px 0;">
+                    <div style="color: #1e40af; font-size: 14px;">
+                        • <strong>Progress Charts:</strong> Visualize trends over time<br>
+                        • <strong>Goal Tracking:</strong> Monitor targets and milestones<br>
+                        • <strong>Correlation Analysis:</strong> See how training affects body composition
+                    </div>
+                    <div style="color: #1e40af; font-size: 14px;">
+                        • <strong>Smart Insights:</strong> AI-powered recommendations<br>
+                        • <strong>Progress Predictions:</strong> Forecast future progress<br>
+                        • <strong>Holistic View:</strong> Combine with workout and nutrition data
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Getting Started Guide -->
+            <div style="background: white; padding: 25px; border-radius: 8px; margin: 20px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                <h3 style="color: #374151; margin-top: 0;">🚀 Getting Started with Body Tracking</h3>
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin: 20px 0;">
+                    <div>
+                        <h4 style="color: #fd7e14;">1. Body Composition Tracking</h4>
+                        <ul style="color: #666; line-height: 1.6; font-size: 14px;">
+                            <li>Use a smart scale or body composition analyzer</li>
+                            <li>Measure at the same time daily (preferably morning)</li>
+                            <li>Track weekly for best trend analysis</li>
+                            <li>Focus on long-term trends, not daily fluctuations</li>
+                        </ul>
+                    </div>
+                    
+                    <div>
+                        <h4 style="color: #10b981;">2. Body Measurements</h4>
+                        <ul style="color: #666; line-height: 1.6; font-size: 14px;">
+                            <li>Use a flexible measuring tape</li>
+                            <li>Measure at consistent anatomical landmarks</li>
+                            <li>Take measurements monthly or bi-weekly</li>
+                            <li>Consider taking progress photos as well</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Records Tab -->
+        <div id="records" class="tab-content">
+            <div class="pr-section">
+                <h2>🔥 Recent Personal Records</h2>
+                
+                {{if .PRs}}
+                <h3 style="color: #28a745;">💪 Strength PRs</h3>
+                <div class="record-grid">
+                    {{range .PRs}}
+                    <div class="pr-item">
+                        <strong>{{.ExerciseName}}</strong><br>
+                        <span style="color: #e74c3c; font-size: 18px; font-weight: bold;">{{.Weight}}lbs</span> × <strong>{{.Reps}} reps</strong>
+                        <div style="color: #666; font-size: 14px;">Est. 1RM: {{printf "%.1f" .OneRepMax}}lbs</div>
+                        <div style="color: #666; font-size: 12px;">{{.AchievedAt.Format "Jan 2, 2006"}}</div>
+                    </div>
+                    {{end}}
+                </div>
+                {{end}}
+
+                {{if .CardioRecords}}
+                <h3 style="color: #007bff; margin-top: 30px;">🏃 Cardio Records</h3>
+                <div class="record-grid">
+                    {{range .CardioRecords}}
+                    <div class="cardio-record-item">
+                        <strong>{{.Activity}}</strong><br>
+                        <span style="color: #007bff; font-size: 18px; font-weight: bold;">{{.DisplayValue}}</span>
+                        <div style="color: #666; font-size: 14px;">{{.RecordType}}</div>
+                        <div style="color: #666; font-size: 12px;">{{.AchievedAt.Format "Jan 2, 2006"}}</div>
+                    </div>
+                    {{end}}
+                </div>
+                {{end}}
+
+                {{if and (not .PRs) (not .CardioRecords)}}
+                <div style="text-align: center; padding: 40px;">
+                    <h3>No records yet</h3>
+                    <p>Start logging your workouts to track your progress!</p>
+                    <p>Your records will automatically be tracked when you log sets and cardio sessions.</p>
+                    <a href="/create" class="btn">Create Your First Workout</a>
+                </div>
+                {{end}}
+            </div>
+        </div>
+        
+        <!-- Export/Import Tab -->
+        <div id="export" class="tab-content">
+            <h2>📤 Export & Import Your Data</h2>
+            <p>Download your workout data for backup, analysis, or transfer to other platforms, or import data from other fitness apps.</p>
+            
+            <!-- Export Section -->
+            <div style="background: white; padding: 30px; border-radius: 8px; margin: 20px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                <h3 style="color: #28a745;">📤 Export Your Data</h3>
+                <p>Download your workout data in multiple formats:</p>
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin: 20px 0;">
+                    <div style="text-align: center; padding: 20px; background: #f8f9fa; border-radius: 8px; border: 2px solid #28a745;">
+                        <div style="font-size: 36px; margin-bottom: 10px;">📊</div>
+                        <h4 style="margin: 10px 0; color: #28a745;">CSV Format</h4>
+                        <p style="font-size: 14px; color: #666; margin-bottom: 15px;">Perfect for Excel & Sheets</p>
+                        <a href="/export?format=csv" class="btn" style="background: #28a745;">Download CSV</a>
+                    </div>
+                    
+                    <div style="text-align: center; padding: 20px; background: #f8f9fa; border-radius: 8px; border: 2px solid #007bff;">
+                        <div style="font-size: 36px; margin-bottom: 10px;">🔧</div>
+                        <h4 style="margin: 10px 0; color: #007bff;">JSON Format</h4>
+                        <p style="font-size: 14px; color: #666; margin-bottom: 15px;">Technical & API friendly</p>
+                        <a href="/export?format=json" class="btn" style="background: #007bff;">Download JSON</a>
+                    </div>
+                    
+                    <div style="text-align: center; padding: 20px; background: #f8f9fa; border-radius: 8px; border: 2px solid #6f42c1;">
+                        <div style="font-size: 36px; margin-bottom: 10px;">📄</div>
+                        <h4 style="margin: 10px 0; color: #6f42c1;">XML Format</h4>
+                        <p style="font-size: 14px; color: #666; margin-bottom: 15px;">System integrations</p>
+                        <a href="/export?format=xml" class="btn" style="background: #6f42c1;">Download XML</a>
+                    </div>
+                </div>
+                
+                <div style="margin: 20px 0; padding: 15px; background: #e7f3ff; border-radius: 5px; border-left: 4px solid #007bff;">
+                    <strong>📋 Export includes:</strong>
+                    <div style="margin-top: 10px; color: #666;">
+                        • Workout dates, names, and duration<br>
+                        • Exercise details with sets, reps, and weights<br>
+                        • RPE ratings and personal notes<br>
+                        • Complete training history
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Import Section -->
+            <div style="background: white; padding: 30px; border-radius: 8px; margin: 20px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                <h3 style="color: #dc3545;">📥 Import Your Data</h3>
+                <p>Upload workout data from other fitness apps or restore from backups:</p>
+                
+                <div style="text-align: center; margin: 20px 0;">
+                    <div style="background: #f8f9fa; border: 3px dashed #dc3545; border-radius: 10px; padding: 40px; margin: 20px 0;">
+                        <div style="font-size: 48px; margin-bottom: 15px;">📁</div>
+                        <h4 style="color: #dc3545; margin: 10px 0;">Ready to Import Your Data?</h4>
+                        <p style="color: #666; margin-bottom: 20px;">Supports CSV, JSON, and XML formats</p>
+                        <a href="/import" class="btn" style="background: #dc3545; font-size: 16px; padding: 15px 30px;">📥 Go to Import Page</a>
+                    </div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin: 20px 0;">
+                    <div style="padding: 15px; background: #f0f8ff; border-radius: 5px; border-left: 4px solid #007bff;">
+                        <strong style="color: #007bff;">✅ Supported Sources:</strong>
+                        <div style="margin-top: 8px; color: #666; font-size: 14px;">
+                            • Other workout trackers<br>
+                            • Fitness app exports<br>
+                            • Custom spreadsheets<br>
+                            • Previous backups
+                        </div>
+                    </div>
+                    
+                    <div style="padding: 15px; background: #fff3cd; border-radius: 5px; border-left: 4px solid #ffc107;">
+                        <strong style="color: #856404;">⚠️ Important:</strong>
+                        <div style="margin-top: 8px; color: #856404; font-size: 14px;">
+                            • Backup current data first<br>
+                            • Check format compatibility<br>
+                            • Test with small files<br>
+                            • Data will be merged
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div style="background: #d4edda; padding: 20px; border-radius: 8px; border: 1px solid #c3e6cb; margin: 20px 0;">
+                <h4 style="color: #155724; margin-top: 0;">💡 Data Management Tips:</h4>
+                <ul style="color: #155724; line-height: 1.6; margin: 10px 0;">
+                    <li>Export regularly to keep backups of your progress</li>
+                    <li>Use imports to migrate from other fitness apps</li>
+                    <li>Test imports with small data sets first</li>
+                    <li>Share exports with trainers for program analysis</li>
+                    <li>Keep exports for long-term progress tracking</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showTab(tabName) {
+            // Hide all tab contents
+            const tabContents = document.querySelectorAll('.tab-content');
+            tabContents.forEach(content => content.classList.remove('active'));
+            
+            // Remove active class from all buttons
+            const tabButtons = document.querySelectorAll('.tab-btn');
+            tabButtons.forEach(btn => btn.classList.remove('active'));
+            
+            // Show selected tab content
+            document.getElementById(tabName).classList.add('active');
+            
+            // Add active class to clicked button
+            event.target.classList.add('active');
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,149 @@
+{{template "base.html" .}}
+
+{{define "content"}}
+<div class="container">
+    <div class="page-header">
+        <h1>All Workouts</h1>
+        <div class="page-actions">
+            <a href="/workouts/new" class="btn btn-primary">
+                <i class="fas fa-plus"></i> New Workout
+            </a>
+        </div>
+    </div>
+
+    {{if .Workouts}}
+    <div class="workouts-list">
+        {{range .Workouts}}
+        <div class="workout-item">
+            <div class="workout-main">
+                <div class="workout-title">
+                    <h3><a href="/workouts/{{.ID}}">{{.Name}}</a></h3>
+                    <span class="workout-date">{{.Date.Format "Monday, Jan 2, 2006"}}</span>
+                </div>
+                <div class="workout-meta">
+                    {{if .Duration}}
+                    <div class="meta-item">
+                        <i class="fas fa-clock"></i>
+                        <span>{{.Duration}} minutes</span>
+                    </div>
+                    {{end}}
+                    {{if .Notes}}
+                    <div class="meta-item">
+                        <i class="fas fa-sticky-note"></i>
+                        <span>{{.Notes}}</span>
+                    </div>
+                    {{end}}
+                </div>
+            </div>
+            <div class="workout-actions">
+                <a href="/workouts/{{.ID}}" class="btn btn-small">
+                    <i class="fas fa-eye"></i> View
+                </a>
+                <button class="btn btn-small btn-secondary" onclick="editWorkout({{.ID}})">
+                    <i class="fas fa-edit"></i> Edit
+                </button>
+                <button class="btn btn-small btn-danger" onclick="deleteWorkout({{.ID}})">
+                    <i class="fas fa-trash"></i> Delete
+                </button>
+            </div>
+        </div>
+        {{end}}
+    </div>
+    {{else}}
+    <div class="empty-state">
+        <div class="empty-icon">
+            <i class="fas fa-dumbbell"></i>
+        </div>
+        <h3>No workouts found</h3>
+        <p>Start tracking your workouts by creating your first one!</p>
+        <a href="/workouts/new" class="btn btn-primary">Create Your First Workout</a>
+    </div>
+    {{end}}
+</div>
+
+<!-- Create Workout Modal -->
+<div id="createWorkoutModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Create New Workout</h2>
+            <span class="close">&times;</span>
+        </div>
+        <form id="createWorkoutForm" method="POST" action="/workouts">
+            <div class="form-group">
+                <label for="name">Workout Name</label>
+                <input type="text" id="name" name="name" required>
+            </div>
+            <div class="form-group">
+                <label for="date">Date</label>
+                <input type="date" id="date" name="date" required>
+            </div>
+            <div class="form-group">
+                <label for="notes">Notes (optional)</label>
+                <textarea id="notes" name="notes" rows="3"></textarea>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Create Workout</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+// Set today's date as default
+document.getElementById('date').valueAsDate = new Date();
+
+// Modal functionality
+function openModal() {
+    document.getElementById('createWorkoutModal').style.display = 'block';
+}
+
+function closeModal() {
+    document.getElementById('createWorkoutModal').style.display = 'none';
+}
+
+// Open modal when "New Workout" button is clicked (commented out since we're using direct links now)
+// document.querySelector('.btn-primary').addEventListener('click', function(e) {
+//     e.preventDefault();
+//     openModal();
+// });
+
+// Close modal when clicking outside of it
+window.onclick = function(event) {
+    const modal = document.getElementById('createWorkoutModal');
+    if (event.target == modal) {
+        closeModal();
+    }
+}
+
+// Close modal when clicking the X
+document.querySelector('.close').onclick = function() {
+    closeModal();
+}
+
+// Edit workout function
+function editWorkout(id) {
+    alert('Edit functionality will be implemented soon! Workout ID: ' + id);
+}
+
+// Delete workout function
+function deleteWorkout(id) {
+    if (confirm('Are you sure you want to delete this workout? This action cannot be undone.')) {
+        // Create a form to submit DELETE request
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/workouts/' + id;
+        
+        // Add hidden input for method override
+        const methodInput = document.createElement('input');
+        methodInput.type = 'hidden';
+        methodInput.name = '_method';
+        methodInput.value = 'DELETE';
+        form.appendChild(methodInput);
+        
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+</script>
+{{end}}
