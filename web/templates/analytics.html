@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.Title}} - Workout Tracker</title>
+    <link href="/static/css/style.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/date-fns@2.29.3/index.min.js"></script>
+    <style>
+        .analytics-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .page-header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .page-title {
+            font-size: 2.5rem;
+            color: #333;
+            margin-bottom: 0.5rem;
+            font-weight: 700;
+        }
+
+        .page-subtitle {
+            color: #666;
+            font-size: 1.1rem;
+        }
+
+        .time-range-selector {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 2rem;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .time-range-btn {
+            padding: 0.75rem 1.5rem;
+            border: 2px solid #ff6b35;
+            background: white;
+            color: #ff6b35;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .time-range-btn.active,
+        .time-range-btn:hover {
+            background: #ff6b35;
+            color: white;
+        }
+
+        .analytics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .chart-card {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .chart-title {
+            font-size: 1.3rem;
+            color: #333;
+            margin-bottom: 1rem;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-bottom: 1rem;
+        }
+
+        .stats-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border-radius: 12px;
+            padding: 2rem;
+            text-align: center;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            font-size: 1rem;
+            opacity: 0.9;
+        }
+
+        .chart-loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 300px;
+            color: #666;
+            font-size: 1.1rem;
+        }
+
+        .no-data {
+            text-align: center;
+            color: #666;
+            padding: 2rem;
+            font-style: italic;
+        }
+
+        /* Dark mode styles */
+        .dark-mode .chart-card {
+            background: #2d2d2d;
+        }
+
+        .dark-mode .chart-title {
+            color: #e0e0e0;
+        }
+
+        .dark-mode .page-title {
+            color: #e0e0e0;
+        }
+
+        .dark-mode .page-subtitle {
+            color: #b0b0b0;
+        }
+
+        .dark-mode .time-range-btn {
+            background: #2d2d2d;
+            border-color: #ff6b35;
+            color: #ff6b35;
+        }
+
+        .dark-mode .no-data {
+            color: #b0b0b0;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <a href="/">💪 Workout Tracker</a>
+            </div>
+            <div class="nav-links">
+                <a href="/dashboard">Dashboard</a>
+                <a href="/workouts">Workouts</a>
+                <a href="/nutrition">Nutrition</a>
+                <a href="/analytics" class="active">Analytics</a>
+                <a href="/profile">Profile</a>
+            </div>
+        </div>
+    </nav>
+    
+    <main>
+<div class="analytics-container">
+    <div class="page-header">
+        <h1 class="page-title">Analytics Dashboard</h1>
+        <p class="page-subtitle">Track your fitness progress with detailed insights</p>
+    </div>
+
+    <div class="time-range-selector">
+        <button class="time-range-btn active" data-range="7">7 Days</button>
+        <button class="time-range-btn" data-range="14">14 Days</button>
+        <button class="time-range-btn" data-range="30">30 Days</button>
+        <button class="time-range-btn" data-range="90">90 Days</button>
+    </div>
+
+    <!-- Summary Stats -->
+    <div class="stats-summary">
+        <div class="stat-card">
+            <div class="stat-value" id="total-workouts">{{.Analytics.TotalWorkouts}}</div>
+            <div class="stat-label">Total Workouts</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="avg-calories">{{.Analytics.AvgCalories}}</div>
+            <div class="stat-label">Avg Daily Calories</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="weight-change">{{.Analytics.WeightChange}}lbs</div>
+            <div class="stat-label">Weight Change</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="workout-streak">{{.Analytics.WorkoutStreak}}</div>
+            <div class="stat-label">Day Streak</div>
+        </div>
+    </div>
+
+    <!-- Charts Grid -->
+    <div class="analytics-grid">
+        <!-- Workout Frequency Chart -->
+        <div class="chart-card">
+            <h3 class="chart-title">Workout Frequency</h3>
+            <div class="chart-container">
+                <canvas id="workoutFrequencyChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Calories Intake Chart -->
+        <div class="chart-card">
+            <h3 class="chart-title">Daily Calories</h3>
+            <div class="chart-container">
+                <canvas id="caloriesChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Body Weight Progress -->
+        <div class="chart-card">
+            <h3 class="chart-title">Weight Progress</h3>
+            <div class="chart-container">
+                <canvas id="weightChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Exercise Category Distribution -->
+        <div class="chart-card">
+            <h3 class="chart-title">Exercise Categories</h3>
+            <div class="chart-container">
+                <canvas id="exerciseCategoriesChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Macronutrient Breakdown -->
+        <div class="chart-card">
+            <h3 class="chart-title">Macronutrient Breakdown</h3>
+            <div class="chart-container">
+                <canvas id="macrosChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Workout Duration Trend -->
+        <div class="chart-card">
+            <h3 class="chart-title">Workout Duration</h3>
+            <div class="chart-container">
+                <canvas id="durationChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentTimeRange = 7;
+let charts = {};
+
+// Initialize charts when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    initializeCharts();
+    setupTimeRangeButtons();
+    loadAnalyticsData(currentTimeRange);
+});
+
+// Time range button functionality
+function setupTimeRangeButtons() {
+    const buttons = document.querySelectorAll('.time-range-btn');
+    buttons.forEach(button => {
+        button.addEventListener('click', function() {
+            // Remove active class from all buttons
+            buttons.forEach(btn => btn.classList.remove('active'));
+            // Add active class to clicked button
+            this.classList.add('active');
+            
+            currentTimeRange = parseInt(this.dataset.range);
+            loadAnalyticsData(currentTimeRange);
+        });
+    });
+}
+
+// Initialize all charts
+function initializeCharts() {
+    // Workout Frequency Chart
+    const workoutCtx = document.getElementById('workoutFrequencyChart').getContext('2d');
+    charts.workoutFrequency = new Chart(workoutCtx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Workouts',
+                data: [],
+                borderColor: '#ff6b35',
+                backgroundColor: 'rgba(255, 107, 53, 0.1)',
+                borderWidth: 3,
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: { stepSize: 1 }
+                }
+            }
+        }
+    });
+
+    // Calories Chart
+    const caloriesCtx = document.getElementById('caloriesChart').getContext('2d');
+    charts.calories = new Chart(caloriesCtx, {
+        type: 'bar',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Calories',
+                data: [],
+                backgroundColor: '#667eea',
+                borderColor: '#667eea',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: { beginAtZero: true }
+            }
+        }
+    });
+
+    // Weight Chart
+    const weightCtx = document.getElementById('weightChart').getContext('2d');
+    charts.weight = new Chart(weightCtx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Weight',
+                data: [],
+                borderColor: '#764ba2',
+                backgroundColor: 'rgba(118, 75, 162, 0.1)',
+                borderWidth: 3,
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: { beginAtZero: false }
+            }
+        }
+    });
+
+    // Exercise Categories Chart
+    const categoriesCtx = document.getElementById('exerciseCategoriesChart').getContext('2d');
+    charts.categories = new Chart(categoriesCtx, {
+        type: 'doughnut',
+        data: {
+            labels: [],
+            datasets: [{
+                data: [],
+                backgroundColor: ['#ff6b35', '#667eea', '#764ba2', '#36a2eb', '#ff6384']
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false
+        }
+    });
+
+    // Macros Chart
+    const macrosCtx = document.getElementById('macrosChart').getContext('2d');
+    charts.macros = new Chart(macrosCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Protein', 'Carbs', 'Fat'],
+            datasets: [{
+                data: [],
+                backgroundColor: ['#ff6b35', '#667eea', '#764ba2']
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false
+        }
+    });
+
+    // Duration Chart
+    const durationCtx = document.getElementById('durationChart').getContext('2d');
+    charts.duration = new Chart(durationCtx, {
+        type: 'bar',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Duration (min)',
+                data: [],
+                backgroundColor: '#36a2eb',
+                borderColor: '#36a2eb',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: { beginAtZero: true }
+            }
+        }
+    });
+}
+
+// Load analytics data from server
+async function loadAnalyticsData(days) {
+    try {
+        const response = await fetch(`/api/analytics?days=${days}`);
+        const data = await response.json();
+        
+        updateCharts(data);
+        updateSummaryStats(data);
+    } catch (error) {
+        console.error('Error loading analytics data:', error);
+    }
+}
+
+// Update all charts with new data
+function updateCharts(data) {
+    // Update workout frequency chart
+    charts.workoutFrequency.data.labels = data.dates || [];
+    charts.workoutFrequency.data.datasets[0].data = data.workoutCounts || [];
+    charts.workoutFrequency.update();
+
+    // Update calories chart
+    charts.calories.data.labels = data.dates || [];
+    charts.calories.data.datasets[0].data = data.dailyCalories || [];
+    charts.calories.update();
+
+    // Update weight chart
+    charts.weight.data.labels = data.weightDates || [];
+    charts.weight.data.datasets[0].data = data.weights || [];
+    charts.weight.update();
+
+    // Update exercise categories
+    charts.categories.data.labels = data.exerciseCategories?.labels || [];
+    charts.categories.data.datasets[0].data = data.exerciseCategories?.values || [];
+    charts.categories.update();
+
+    // Update macros chart
+    charts.macros.data.datasets[0].data = [
+        data.macros?.protein || 0,
+        data.macros?.carbs || 0,
+        data.macros?.fat || 0
+    ];
+    charts.macros.update();
+
+    // Update duration chart
+    charts.duration.data.labels = data.dates || [];
+    charts.duration.data.datasets[0].data = data.durations || [];
+    charts.duration.update();
+}
+
+// Update summary statistics
+function updateSummaryStats(data) {
+    document.getElementById('total-workouts').textContent = data.totalWorkouts || 0;
+    document.getElementById('avg-calories').textContent = data.avgCalories || 0;
+    document.getElementById('weight-change').textContent = `${data.weightChange > 0 ? '+' : ''}${data.weightChange || 0}lbs`;
+    document.getElementById('workout-streak').textContent = data.workoutStreak || 0;
+}
+</script>
+    </main>
+</body>
+</html>

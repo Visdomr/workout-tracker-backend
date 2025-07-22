@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.Title}}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background-color: #f5f5f5;
+            line-height: 1.6;
+        }
+
+        /* Orange Header */
+        .header {
+            background: linear-gradient(135deg, #ff6b35, #ff8c42);
+            color: white;
+            padding: 1rem 0;
+            box-shadow: 0 4px 12px rgba(255, 107, 53, 0.3);
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .header-nav {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .header-nav a {
+            color: white;
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            transition: background-color 0.3s;
+            font-weight: 500;
+        }
+
+        .header-nav a:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .page-title {
+            font-size: 2rem;
+            color: #333;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        .back-link {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            text-decoration: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            font-weight: 500;
+            margin-bottom: 2rem;
+            transition: transform 0.3s;
+        }
+
+        .back-link:hover {
+            transform: translateY(-2px);
+        }
+
+        .weight-form {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+        }
+
+        .form-field {
+            margin-bottom: 1rem;
+        }
+
+        .form-field label {
+            display: block;
+            color: #333;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .form-field input, .form-field select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #ced4da;
+            border-radius: 6px;
+            font-size: 1rem;
+        }
+
+        .submit-btn {
+            display: inline-block;
+            background: linear-gradient(135deg, #5cb85c, #4cae4c);
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            text-transform: uppercase;
+            transition: background-color 0.3s;
+            cursor: pointer;
+        }
+
+        .submit-btn:hover {
+            background: #4cae4c;
+        }
+
+        .weight-list {
+            list-style: none;
+        }
+
+        .weight-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            background: white;
+            border-radius: 6px;
+            margin-bottom: 0.75rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+
+        .weight-date {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .weight-value {
+            font-weight: 600;
+            color: #333;
+            font-size: 1.1rem;
+        }
+
+        .weight-notes {
+            color: #888;
+            font-size: 0.85rem;
+            margin-top: 0.25rem;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #666;
+            font-size: 1.1rem;
+            margin-top: 3rem;
+        }
+    </style>
+</head>
+<body>
+    <!-- Orange Header -->
+    <header class="header">
+        <div class="header-content">
+            <h1>Workout Tracker</h1>
+            <nav class="header-nav">
+                <a href="/">Dashboard</a>
+                <a href="/workouts">All Workouts</a>
+                <a href="/logout">Logout</a>
+            </nav>
+        </div>
+    </header>
+
+    <div class="container">
+        <a href="/" class="back-link">← Back to Dashboard</a>
+        
+        <h2 class="page-title">Body Weight Tracking</h2>
+
+        <div class="weight-form">
+            <form id="weightForm">
+                <div class="form-field">
+                    <label for="weight">Weight</label>
+                    <input type="number" step="0.01" name="weight" id="weight" required>
+                </div>
+                <div class="form-field">
+                    <label for="unit">Unit</label>
+                    <select name="unit" id="unit" required>
+                        <option value="lbs">Pounds (lbs)</option>
+                        <option value="kg">Kilograms (kg)</option>
+                    </select>
+                </div>
+                <div class="form-field">
+                    <label for="date">Date</label>
+                    <input type="date" name="date" id="date" required>
+                </div>
+                <div class="form-field">
+                    <label for="notes">Notes (optional)</label>
+                    <input type="text" name="notes" id="notes" placeholder="Any additional notes...">
+                </div>
+                <button type="submit" class="submit-btn">Add Weight Entry</button>
+            </form>
+        </div>
+
+        {{if .BodyWeights}}
+            <ul class="weight-list">
+                {{range .BodyWeights}}
+                <li class="weight-item">
+                    <div>
+                        <div class="weight-value">{{.Weight}} {{.Unit}}</div>
+                        <div class="weight-date">{{.Date.Format "January 2, 2006"}}</div>
+                        {{if .Notes}}
+                            <div class="weight-notes">{{.Notes}}</div>
+                        {{end}}
+                    </div>
+                </li>
+                {{end}}
+            </ul>
+        {{else}}
+            <div class="empty-state">
+                <p>No weight entries found. Start tracking your weight above!</p>
+            </div>
+        {{end}}
+    </div>
+
+    <script>
+        // Set today's date as default
+        document.getElementById('date').value = new Date().toISOString().split('T')[0];
+        
+        document.getElementById('weightForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const data = {
+                weight: parseFloat(formData.get('weight')),
+                unit: formData.get('unit'),
+                date: formData.get('date'),
+                notes: formData.get('notes') || ''
+            };
+            
+            try {
+                const response = await fetch('/api/body-weights', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                if (response.ok) {
+                    location.reload();
+                } else {
+                    alert('Error adding weight entry. Please try again.');
+                }
+            } catch (error) {
+                alert('Error adding weight entry. Please try again.');
+            }
+        });
+    </script>
+</body>
+</html>

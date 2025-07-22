@@ -1,0 +1,21 @@
+{{template "base.html" .}}
+
+{{define "content"}}
+<div class="container">
+    <h1>Account Settings</h1>
+    <p>This is a test version of account settings.</p>
+    
+    <div class="settings-section">
+        <h2>User Profile</h2>
+        <p><strong>Username:</strong> {{.User.Username}}</p>
+        <p><strong>Email:</strong> {{.User.Email}}</p>
+        <p><strong>Full Name:</strong> {{.User.FullName}}</p>
+    </div>
+    
+    <div class="settings-section">
+        <h2>Settings</h2>
+        <p><strong>Theme:</strong> {{.Settings.Theme}}</p>
+        <p><strong>Language:</strong> {{.Settings.Language}}</p>
+    </div>
+</div>
+{{end}}

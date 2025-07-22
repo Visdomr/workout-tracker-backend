@@ -129,12 +129,12 @@ function editWorkout(id) {
 // Delete workout function
 function deleteWorkout(id) {
     if (confirm('Are you sure you want to delete this workout? This action cannot be undone.')) {
-        // Create a form to submit DELETE request
+        // Create a form to submit to the correct delete route
         const form = document.createElement('form');
         form.method = 'POST';
-        form.action = '/workouts/' + id;
+        form.action = '/workouts/' + id + '/delete';
         
-        // Add hidden input for method override
+        // Add the required _method field for DELETE
         const methodInput = document.createElement('input');
         methodInput.type = 'hidden';
         methodInput.name = '_method';

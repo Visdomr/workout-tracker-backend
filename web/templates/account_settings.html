@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.Title}} - Workout Tracker</title>
+    <link href="/static/css/style.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body {{if eq .Settings.Theme "dark"}}class="dark-mode"{{end}}>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <a href="/"><i class="fas fa-dumbbell"></i> Workout Tracker</a>
+            </div>
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="/" class="nav-link">Dashboard</a>
+                </li>
+                <li class="nav-item">
+                    <a href="/workouts" class="nav-link">All Workouts</a>
+                </li>
+                <li class="nav-item">
+                    <a href="/workouts/new" class="nav-link btn-primary">New Workout</a>
+                </li>
+                <li class="nav-item">
+                    <a href="/account-settings" class="nav-link"><i class="fas fa-cog"></i> Settings</a>
+                </li>
+                <li class="nav-item">
+                    <form method="POST" action="/logout" style="display: inline;">
+                        <button type="submit" class="nav-link logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</button>
+                    </form>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="main-content">
+<div class="container">
+    <h1>Account Settings</h1>
+    
+    <form method="POST" action="/account/update-profile">
+        <div class="settings-section">
+            <h2>User Profile</h2>
+            <label for="username"><strong>Username:</strong></label>
+            <input type="text" id="username" name="username" value="{{.User.Username}}">
+            
+            <label for="email"><strong>Email:</strong></label>
+            <input type="email" id="email" name="email" value="{{.User.Email}}">
+            
+            <label for="full_name"><strong>Full Name:</strong></label>
+            <input type="text" id="full_name" name="full_name" value="{{.User.FullName}}">
+            
+            <button type="submit">Update Profile</button>
+        </div>
+    </form>
+
+    <form method="POST" action="/account/update-settings">
+        <div class="settings-section">
+            <h2>Settings</h2>
+            <label for="theme"><strong>Theme:</strong></label>
+            <select id="theme" name="theme">
+                <option value="light" {{if eq .Settings.Theme "light"}}selected{{end}}>Light</option>
+                <option value="dark" {{if eq .Settings.Theme "dark"}}selected{{end}}>Dark</option>
+            </select>
+            
+            <label for="language"><strong>Language:</strong></label>
+            <input type="text" id="language" name="language" value="{{.Settings.Language}}">
+
+            <button type="submit">Update Settings</button>
+        </div>
+    </form>
+
+    <form method="POST" action="/account/change-password">
+        <div class="settings-section">
+            <h2>Change Password</h2>
+            <label for="current_password"><strong>Current Password:</strong></label>
+            <input type="password" id="current_password" name="current_password">
+
+            <label for="new_password"><strong>New Password:</strong></label>
+            <input type="password" id="new_password" name="new_password">
+
+            <label for="confirm_password"><strong>Confirm New Password:</strong></label>
+            <input type="password" id="confirm_password" name="confirm_password">
+
+            <button type="submit">Change Password</button>
+        </div>
+    </form>
+</div>
+    </main>
+
+    <footer class="footer">
+        <div class="footer-content">
+            <p>&copy; 2024 Workout Tracker. Built with Go.</p>
+        </div>
+    </footer>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

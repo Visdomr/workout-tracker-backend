@@ -1,0 +1,470 @@
+{{template "base.html" .}}
+
+{{define "content"}}
+<!-- Orange Header -->
+<div class="orange-header">
+    <div class="container">
+        <h1><i class="fas fa-user"></i> Profile</h1>
+        <p>Manage your profile information</p>
+    </div>
+</div>
+
+<div class="container">
+    <div class="profile-container">
+        <!-- Profile Overview -->
+        <div class="profile-overview">
+            <div class="profile-avatar">
+                {{if .User.Avatar}}
+                <img src="{{.User.Avatar}}" alt="Profile Avatar" class="avatar-image">
+                {{else}}
+                <div class="avatar-placeholder">
+                    <i class="fas fa-user"></i>
+                </div>
+                {{end}}
+            </div>
+            <div class="profile-info">
+                <h2>{{if .User.FullName}}{{.User.FullName}}{{else}}{{.User.Username}}{{end}}</h2>
+                <p class="username">@{{.User.Username}}</p>
+                <p class="email"><i class="fas fa-envelope"></i> {{.User.Email}}</p>
+                <p class="member-since">
+                    <i class="fas fa-calendar-alt"></i> 
+                    Member since {{.User.CreatedAt.Format "January 2006"}}
+                </p>
+            </div>
+        </div>
+
+        <!-- Profile Stats -->
+        <div class="profile-stats">
+            <h3>Your Fitness Journey</h3>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-dumbbell"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h3>{{.Stats.total_workouts}}</h3>
+                        <p>Total Workouts</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-fire"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h3>{{.Stats.this_week_workouts}}</h3>
+                        <p>This Week</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h3>{{.Stats.avg_duration}}</h3>
+                        <p>Avg Duration (min)</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bio Section -->
+        <div class="profile-bio">
+            <h3>About Me</h3>
+            {{if .User.Bio}}
+            <p class="bio-text">{{.User.Bio}}</p>
+            {{else}}
+            <p class="bio-placeholder">Tell others about your fitness journey...</p>
+            {{end}}
+        </div>
+
+        <!-- Edit Profile Form -->
+        <div class="profile-edit">
+            <h3>Edit Profile</h3>
+            <form method="POST" action="/account/update-profile" class="profile-form">
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" name="username" value="{{.User.Username}}" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" name="email" value="{{.User.Email}}" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="full_name">Full Name</label>
+                    <input type="text" id="full_name" name="full_name" value="{{.User.FullName}}" placeholder="Your full name">
+                </div>
+
+                <div class="form-group">
+                    <label for="bio">Bio</label>
+                    <textarea id="bio" name="bio" rows="4" placeholder="Tell others about your fitness journey...">{{.User.Bio}}</textarea>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Save Changes
+                    </button>
+                    <a href="/profile" class="btn btn-secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+
+        <!-- Recent Activity -->
+        {{if .Workouts}}
+        <div class="profile-activity">
+            <h3>Recent Workouts</h3>
+            <div class="activity-list">
+                {{range .Workouts}}
+                <div class="activity-item">
+                    <div class="activity-icon">
+                        <i class="fas fa-dumbbell"></i>
+                    </div>
+                    <div class="activity-content">
+                        <h4>{{.Name}}</h4>
+                        <p>{{.Date.Format "Jan 2, 2006"}} {{if .Duration}}• {{.Duration}} min{{end}}</p>
+                    </div>
+                    <div class="activity-action">
+                        <a href="/workouts/{{.ID}}" class="btn btn-small">View</a>
+                    </div>
+                </div>
+                {{end}}
+            </div>
+        </div>
+        {{end}}
+
+        <!-- Quick Actions -->
+        <div class="profile-actions">
+            <h3>Quick Actions</h3>
+            <div class="action-buttons">
+                <a href="/workouts/new" class="action-btn">
+                    <i class="fas fa-plus-circle"></i>
+                    <span>New Workout</span>
+                </a>
+                <a href="/analytics" class="action-btn">
+                    <i class="fas fa-chart-line"></i>
+                    <span>View Analytics</span>
+                </a>
+                <a href="/account-settings" class="action-btn">
+                    <i class="fas fa-cog"></i>
+                    <span>Settings</span>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.profile-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 2rem 0;
+}
+
+.profile-overview {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+    background: var(--card-bg);
+    padding: 2rem;
+    border-radius: 12px;
+    margin-bottom: 2rem;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.profile-avatar {
+    flex-shrink: 0;
+}
+
+.avatar-image {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 4px solid var(--primary-color);
+}
+
+.avatar-placeholder {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: var(--primary-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 3rem;
+}
+
+.profile-info h2 {
+    margin: 0 0 0.5rem 0;
+    color: var(--text-primary);
+}
+
+.username {
+    color: var(--primary-color);
+    font-weight: 600;
+    margin: 0 0 0.5rem 0;
+}
+
+.email, .member-since {
+    color: var(--text-secondary);
+    margin: 0.25rem 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.profile-stats {
+    background: var(--card-bg);
+    padding: 2rem;
+    border-radius: 12px;
+    margin-bottom: 2rem;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.profile-stats h3 {
+    margin: 0 0 1.5rem 0;
+    color: var(--text-primary);
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+}
+
+.stat-card {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+}
+
+.stat-icon {
+    width: 50px;
+    height: 50px;
+    background: var(--primary-color);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.2rem;
+}
+
+.stat-content h3 {
+    margin: 0;
+    font-size: 1.5rem;
+    color: var(--text-primary);
+}
+
+.stat-content p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.profile-bio {
+    background: var(--card-bg);
+    padding: 2rem;
+    border-radius: 12px;
+    margin-bottom: 2rem;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.profile-bio h3 {
+    margin: 0 0 1rem 0;
+    color: var(--text-primary);
+}
+
+.bio-text {
+    color: var(--text-primary);
+    line-height: 1.6;
+    margin: 0;
+}
+
+.bio-placeholder {
+    color: var(--text-secondary);
+    font-style: italic;
+    margin: 0;
+}
+
+.profile-edit {
+    background: var(--card-bg);
+    padding: 2rem;
+    border-radius: 12px;
+    margin-bottom: 2rem;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.profile-edit h3 {
+    margin: 0 0 1.5rem 0;
+    color: var(--text-primary);
+}
+
+.profile-form {
+    display: grid;
+    gap: 1.5rem;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.form-group label {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.form-group input,
+.form-group textarea {
+    padding: 0.75rem;
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: border-color 0.3s ease;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: var(--primary-color);
+}
+
+.form-actions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.profile-activity {
+    background: var(--card-bg);
+    padding: 2rem;
+    border-radius: 12px;
+    margin-bottom: 2rem;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.profile-activity h3 {
+    margin: 0 0 1.5rem 0;
+    color: var(--text-primary);
+}
+
+.activity-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.activity-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+}
+
+.activity-icon {
+    width: 40px;
+    height: 40px;
+    background: var(--primary-color);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+}
+
+.activity-content {
+    flex: 1;
+}
+
+.activity-content h4 {
+    margin: 0 0 0.25rem 0;
+    color: var(--text-primary);
+}
+
+.activity-content p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.activity-action {
+    flex-shrink: 0;
+}
+
+.profile-actions {
+    background: var(--card-bg);
+    padding: 2rem;
+    border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.profile-actions h3 {
+    margin: 0 0 1.5rem 0;
+    color: var(--text-primary);
+}
+
+.action-buttons {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+}
+
+.action-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 1.5rem;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    text-decoration: none;
+    color: var(--text-primary);
+    transition: all 0.3s ease;
+}
+
+.action-btn:hover {
+    background: var(--primary-color);
+    color: white;
+    transform: translateY(-2px);
+}
+
+.action-btn i {
+    font-size: 1.5rem;
+}
+
+.action-btn span {
+    font-weight: 600;
+}
+
+@media (max-width: 768px) {
+    .profile-overview {
+        flex-direction: column;
+        text-align: center;
+        gap: 1rem;
+    }
+    
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .form-actions {
+        flex-direction: column;
+    }
+    
+    .action-buttons {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+</style>
+{{end}}

@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{.Title}}</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         * {
             margin: 0;
@@ -178,6 +179,151 @@
             font-size: 1.1rem;
         }
 
+        /* Dark Mode Styles */
+        body.dark-mode {
+            background-color: #1a1a1a;
+            color: #f0f0f0;
+        }
+
+        body.dark-mode .header {
+            background: linear-gradient(135deg, #333, #555);
+        }
+
+        body.dark-mode .category-card {
+            background: #2a2a2a;
+            color: #f0f0f0;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        body.dark-mode .category-title {
+            color: #f0f0f0;
+        }
+
+        body.dark-mode .welcome-section h2 {
+            color: #f0f0f0;
+        }
+
+        body.dark-mode .welcome-section p {
+            color: #ccc;
+        }
+
+        body.dark-mode .action-btn {
+            background: #333;
+            border-color: #555;
+            color: #f0f0f0;
+        }
+
+        body.dark-mode .action-btn:hover {
+            background: #444;
+            border-color: #666;
+        }
+
+        body.dark-mode .fitness-card .action-btn:hover {
+            border-color: #667eea;
+            color: #667eea;
+        }
+
+        body.dark-mode .nutrition-card .action-btn:hover {
+            border-color: #5cb85c;
+            color: #5cb85c;
+        }
+
+        /* Analytics Section */
+        .analytics-section {
+            margin-top: 3rem;
+        }
+
+        .analytics-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .analytics-header h3 {
+            font-size: 1.8rem;
+            color: #333;
+            margin-bottom: 0.5rem;
+        }
+
+        .analytics-header p {
+            color: #666;
+            font-size: 1rem;
+        }
+
+        .analytics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .chart-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .chart-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        }
+
+        .chart-title {
+            font-size: 1.2rem;
+            color: #333;
+            margin-bottom: 1rem;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 250px;
+            margin-bottom: 1rem;
+        }
+
+        .view-more-analytics {
+            text-align: center;
+            margin-top: 1.5rem;
+        }
+
+        .view-more-btn {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.75rem 1.5rem;
+            background: linear-gradient(135deg, #ff6b35, #ff8c42);
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: all 0.3s;
+            box-shadow: 0 4px 12px rgba(255, 107, 53, 0.3);
+        }
+
+        .view-more-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 18px rgba(255, 107, 53, 0.4);
+        }
+
+        /* Dark Mode Analytics */
+        body.dark-mode .analytics-header h3 {
+            color: #f0f0f0;
+        }
+
+        body.dark-mode .analytics-header p {
+            color: #ccc;
+        }
+
+        body.dark-mode .chart-card {
+            background: #2a2a2a;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        body.dark-mode .chart-title {
+            color: #f0f0f0;
+        }
+
         /* Responsive Design */
         @media (max-width: 768px) {
             .header h1 {
@@ -205,14 +351,17 @@
         }
     </style>
 </head>
-<body>
+<body {{if .UserSettings}}{{if eq .UserSettings.Theme "dark"}}class="dark-mode"{{end}}{{end}}>
     <!-- Orange Header -->
     <header class="header">
         <div class="header-content">
             <h1>Workout Tracker</h1>
             <nav class="header-nav">
                 <a href="/workouts">All Workouts</a>
-                <a href="/logout">Logout</a>
+                <a href="/account-settings">⚙️ Settings</a>
+                <form method="POST" action="/logout" style="display: inline;">
+                    <button type="submit" style="background: none; border: none; color: white; text-decoration: none; padding: 0.5rem 1rem; border-radius: 6px; transition: background-color 0.3s; font-weight: 500; cursor: pointer; font-family: inherit;" onmouseover="this.style.backgroundColor='rgba(255, 255, 255, 0.2)'" onmouseout="this.style.backgroundColor='transparent'">Logout</button>
+                </form>
             </nav>
         </div>
     </header>
@@ -236,16 +385,16 @@
                     <h3 class="category-title">Fitness Tracking</h3>
                 </div>
                 <div class="buttons-grid">
-                    <a href="/workouts/create" class="action-btn">
+                    <a href="/workouts/new" class="action-btn">
                         New Workout
                     </a>
                     <a href="/workouts" class="action-btn">
                         View Workouts
                     </a>
-                    <a href="#" class="action-btn">
+                    <a href="/exercise-library" class="action-btn">
                         Exercise Library
                     </a>
-                    <a href="#" class="action-btn">
+                    <a href="/progress-stats" class="action-btn">
                         Progress Stats
                     </a>
                 </div>
@@ -260,21 +409,223 @@
                     <h3 class="category-title">Nutrition & Body</h3>
                 </div>
                 <div class="buttons-grid">
-                    <a href="#" class="action-btn">
+                    <a href="/log-meals" class="action-btn">
                         Log Meals
                     </a>
-                    <a href="#" class="action-btn">
+                    <a href="/body-weight" class="action-btn">
                         Body Weight
                     </a>
-                    <a href="#" class="action-btn">
+                    <a href="/body-fat" class="action-btn">
                         Body Fat %
                     </a>
-                    <a href="#" class="action-btn">
+                    <a href="/body-measurements" class="action-btn">
                         Measurements
                     </a>
                 </div>
             </div>
         </div>
+
+        <!-- Analytics Section -->
+        <div class="analytics-section">
+            <div class="analytics-header">
+                <h3>📊 Your Progress at a Glance</h3>
+                <p>Quick insights into your fitness journey</p>
+            </div>
+
+            <div class="analytics-grid">
+                <!-- Workout Frequency Chart -->
+                <div class="chart-card">
+                    <h4 class="chart-title">Recent Workouts</h4>
+                    <div class="chart-container">
+                        <canvas id="workoutFrequencyChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Weight Progress Chart -->
+                <div class="chart-card">
+                    <h4 class="chart-title">Weight Progress</h4>
+                    <div class="chart-container">
+                        <canvas id="weightChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Exercise Categories Chart -->
+                <div class="chart-card">
+                    <h4 class="chart-title">Exercise Distribution</h4>
+                    <div class="chart-container">
+                        <canvas id="exerciseCategoriesChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="view-more-analytics">
+                <a href="/analytics" class="view-more-btn">📈 View Detailed Analytics</a>
+            </div>
+        </div>
     </div>
+
+    <script>
+    let dashboardCharts = {};
+
+    // Initialize charts when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        initializeDashboardCharts();
+        loadDashboardAnalytics();
+    });
+
+    // Initialize dashboard charts
+    function initializeDashboardCharts() {
+        // Workout Frequency Chart
+        const workoutCtx = document.getElementById('workoutFrequencyChart');
+        if (workoutCtx) {
+            dashboardCharts.workoutFrequency = new Chart(workoutCtx.getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Workouts',
+                        data: [],
+                        borderColor: '#ff6b35',
+                        backgroundColor: 'rgba(255, 107, 53, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { stepSize: 1 }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Weight Chart
+        const weightCtx = document.getElementById('weightChart');
+        if (weightCtx) {
+            dashboardCharts.weight = new Chart(weightCtx.getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Weight (lbs)',
+                        data: [],
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: { beginAtZero: false }
+                    }
+                }
+            });
+        }
+
+        // Exercise Categories Chart
+        const categoriesCtx = document.getElementById('exerciseCategoriesChart');
+        if (categoriesCtx) {
+            dashboardCharts.categories = new Chart(categoriesCtx.getContext('2d'), {
+                type: 'doughnut',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        data: [],
+                        backgroundColor: ['#ff6b35', '#667eea', '#5cb85c', '#36a2eb', '#ff6384']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 10,
+                                usePointStyle: true
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    }
+
+    // Load analytics data from server
+    async function loadDashboardAnalytics() {
+        try {
+            const response = await fetch('/api/analytics?days=30');
+            if (!response.ok) {
+                console.log('Analytics API not available yet');
+                // Show placeholder data or empty state
+                showPlaceholderData();
+                return;
+            }
+            
+            const data = await response.json();
+            updateDashboardCharts(data);
+        } catch (error) {
+            console.log('Analytics data not available:', error);
+            showPlaceholderData();
+        }
+    }
+
+    // Update dashboard charts with data
+    function updateDashboardCharts(data) {
+        // Update workout frequency chart
+        if (dashboardCharts.workoutFrequency) {
+            dashboardCharts.workoutFrequency.data.labels = (data.dates || []).slice(-7); // Last 7 days
+            dashboardCharts.workoutFrequency.data.datasets[0].data = (data.workoutCounts || []).slice(-7);
+            dashboardCharts.workoutFrequency.update();
+        }
+
+        // Update weight chart
+        if (dashboardCharts.weight) {
+            dashboardCharts.weight.data.labels = (data.weightDates || []).slice(-10); // Last 10 entries
+            dashboardCharts.weight.data.datasets[0].data = (data.weights || []).slice(-10);
+            dashboardCharts.weight.update();
+        }
+
+        // Update exercise categories
+        if (dashboardCharts.categories) {
+            dashboardCharts.categories.data.labels = data.exerciseCategories?.labels || [];
+            dashboardCharts.categories.data.datasets[0].data = data.exerciseCategories?.values || [];
+            dashboardCharts.categories.update();
+        }
+    }
+
+    // Show placeholder data when analytics API is not available
+    function showPlaceholderData() {
+        // Sample data for demonstration
+        const sampleData = {
+            dates: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+            workoutCounts: [1, 0, 1, 1, 0, 1, 0],
+            weightDates: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
+            weights: [170, 169, 168, 167],
+            exerciseCategories: {
+                labels: ['Strength', 'Cardio', 'Flexibility'],
+                values: [60, 30, 10]
+            }
+        };
+        
+        updateDashboardCharts(sampleData);
+    }
+    </script>
 </body>
 </html>

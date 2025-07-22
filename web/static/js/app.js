@@ -19,6 +19,9 @@ function initializeApp() {
     // Initialize workout functionality
     initializeWorkoutFeatures();
     
+    // Initialize dark mode
+    initializeDarkMode();
+    
     console.log('Workout Tracker initialized');
 }
 
@@ -67,6 +70,32 @@ function initializeWorkoutFeatures() {
     // Only handle specific workout feature buttons, not form submit buttons
     // Don't interfere with form submissions
     console.log('Workout features initialized (not interfering with forms)');
+}
+
+// Dark mode functionality
+function initializeDarkMode() {
+    // Apply dark mode based on user settings from server
+    const themeSelect = document.getElementById('theme');
+    if (themeSelect) {
+        // Apply current theme on page load
+        const currentTheme = themeSelect.value;
+        applyTheme(currentTheme);
+        
+        // Listen for theme changes
+        themeSelect.addEventListener('change', function() {
+            const selectedTheme = this.value;
+            applyTheme(selectedTheme);
+        });
+    }
+}
+
+function applyTheme(theme) {
+    const body = document.body;
+    if (theme === 'dark') {
+        body.classList.add('dark-mode');
+    } else {
+        body.classList.remove('dark-mode');
+    }
 }
 
 // Modal functions
