@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"html/template"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -24,9 +25,8 @@ type Handler struct {
 
 // New creates a new handler instance
 func New(db *database.DB) *Handler {
-	// Load templates with proper parsing
-	templates := template.New("")
-	templates = template.Must(templates.ParseGlob("web/templates/*.html"))
+	// Load templates with proper parsing for inheritance
+	templates := template.Must(template.ParseGlob("web/templates/*.html"))
 	
 	store := sessions.NewCookieStore([]byte("something-very-secret"))
 
@@ -65,9 +65,10 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		Title: "Login",
 	}
 
-	err := h.templates.ExecuteTemplate(w, "login.html", data)
+	err := h.templates.ExecuteTemplate(w, "login_simple.html", data)
 	if err != nil {
 		http.Error(w, "Failed to render template", http.StatusInternalServerError)
+		return
 	}
 }
 
@@ -109,9 +110,10 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		Title: "Register",
 	}
 
-	err := h.templates.ExecuteTemplate(w, "register.html", data)
+	err := h.templates.ExecuteTemplate(w, "register_simple.html", data)
 	if err != nil {
 		http.Error(w, "Failed to render template", http.StatusInternalServerError)
+		return
 	}
 }
 
@@ -141,8 +143,9 @@ func (h *Handler) Home(w http.ResponseWriter, r *http.Request) {
 		Title:    "Workout Tracker",
 	}
 
-	if err := h.templates.ExecuteTemplate(w, "index.html", data); err != nil {
-		http.Error(w, "Failed to render template", http.StatusInternalServerError)
+	if err := h.templates.ExecuteTemplate(w, "index_dashboard.html", data); err != nil {
+		log.Printf("Template error: %v", err)
+	http.Error(w, "Failed to render template", http.StatusInternalServerError)
 		return
 	}
 }
