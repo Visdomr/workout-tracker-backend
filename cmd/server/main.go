@@ -58,35 +58,35 @@ func main() {
 	r.HandleFunc("/body-measurements", h.AuthMiddleware(h.BodyMeasurements)).Methods("GET")
 	
 	// API routes
-	r.HandleFunc("/api/workouts", h.APIGetWorkouts).Methods("GET")
-	r.HandleFunc("/api/workouts", h.APICreateWorkout).Methods("POST")
-	r.HandleFunc("/api/workouts/{id}", h.APIGetWorkout).Methods("GET")
-	r.HandleFunc("/api/workouts/{id}", h.UpdateWorkout).Methods("PUT")
-	r.HandleFunc("/api/workouts/{id}", h.DeleteWorkout).Methods("DELETE")
+	r.HandleFunc("/api/workouts", h.AuthMiddleware(h.APIGetWorkouts)).Methods("GET")
+	r.HandleFunc("/api/workouts", h.AuthMiddleware(h.APICreateWorkout)).Methods("POST")
+	r.HandleFunc("/api/workouts/{id}", h.AuthMiddleware(h.APIGetWorkout)).Methods("GET")
+	r.HandleFunc("/api/workouts/{id}", h.AuthMiddleware(h.UpdateWorkout)).Methods("PUT")
+	r.HandleFunc("/api/workouts/{id}", h.AuthMiddleware(h.DeleteWorkout)).Methods("DELETE")
 	
 	// Exercise API routes
-	r.HandleFunc("/api/exercises", h.CreateExercise).Methods("POST")
-	r.HandleFunc("/api/exercises/{id}", h.UpdateExercise).Methods("PUT")
-	r.HandleFunc("/api/exercises/{id}", h.DeleteExercise).Methods("DELETE")
+	r.HandleFunc("/api/exercises", h.AuthMiddleware(h.CreateExercise)).Methods("POST")
+	r.HandleFunc("/api/exercises/{id}", h.AuthMiddleware(h.UpdateExercise)).Methods("PUT")
+	r.HandleFunc("/api/exercises/{id}", h.AuthMiddleware(h.DeleteExercise)).Methods("DELETE")
 	
 	// Set API routes
-	r.HandleFunc("/api/sets", h.CreateSet).Methods("POST")
-	r.HandleFunc("/api/sets/{id}", h.UpdateSet).Methods("PUT")
-	r.HandleFunc("/api/sets/{id}", h.DeleteSet).Methods("DELETE")
+	r.HandleFunc("/api/sets", h.AuthMiddleware(h.CreateSet)).Methods("POST")
+	r.HandleFunc("/api/sets/{id}", h.AuthMiddleware(h.UpdateSet)).Methods("PUT")
+	r.HandleFunc("/api/sets/{id}", h.AuthMiddleware(h.DeleteSet)).Methods("DELETE")
 	
 	// Predefined exercise API routes
-	r.HandleFunc("/api/predefined-exercises", h.GetPredefinedExercises).Methods("GET")
-	r.HandleFunc("/api/predefined-exercises", h.CreatePredefinedExercise).Methods("POST")
-	r.HandleFunc("/api/predefined-exercises/category/{category}", h.GetPredefinedExercisesByCategory).Methods("GET")
+	r.HandleFunc("/api/predefined-exercises", h.AuthMiddleware(h.GetPredefinedExercises)).Methods("GET")
+	r.HandleFunc("/api/predefined-exercises", h.AuthMiddleware(h.CreatePredefinedExercise)).Methods("POST")
+	r.HandleFunc("/api/predefined-exercises/category/{category}", h.AuthMiddleware(h.GetPredefinedExercisesByCategory)).Methods("GET")
 	
 	// Nutrition and Body tracking API routes
-	r.HandleFunc("/api/meals", h.CreateMeal).Methods("POST")
-	r.HandleFunc("/api/body-weights", h.CreateBodyWeight).Methods("POST")
-	r.HandleFunc("/api/body-fats", h.CreateBodyFat).Methods("POST")
-	r.HandleFunc("/api/body-measurements", h.CreateBodyMeasurement).Methods("POST")
+	r.HandleFunc("/api/meals", h.AuthMiddleware(h.CreateMeal)).Methods("POST")
+	r.HandleFunc("/api/body-weights", h.AuthMiddleware(h.CreateBodyWeight)).Methods("POST")
+	r.HandleFunc("/api/body-fats", h.AuthMiddleware(h.CreateBodyFat)).Methods("POST")
+	r.HandleFunc("/api/body-measurements", h.AuthMiddleware(h.CreateBodyMeasurement)).Methods("POST")
 	
 	// Analytics API route
-	r.HandleFunc("/api/analytics", h.AnalyticsAPI).Methods("GET")
+	r.HandleFunc("/api/analytics", h.AuthMiddleware(h.AnalyticsAPI)).Methods("GET")
 	
 	// Static files
 	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("web/static/"))))

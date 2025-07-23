@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"html/template"
 	"log"
 	"net/http"
@@ -306,23 +307,38 @@ func (h *Handler) UpdateWorkout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if r.Method == "POST" {
-		// Parse form data
-		if err := r.ParseForm(); err != nil {
-			http.Error(w, "Failed to parse form", http.StatusBadRequest)
-			return
-		}
+	if r.Method == "POST" || r.Method == "PUT" {
+		var name, dateStr, durationStr, notes string
+		
+		if r.Method == "PUT" {
+			// Handle JSON for API requests
+			var req models.UpdateWorkoutRequest
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				http.Error(w, "Invalid JSON", http.StatusBadRequest)
+				return
+			}
+			name = req.Name
+			dateStr = req.Date
+			durationStr = strconv.Itoa(req.Duration)
+			notes = req.Notes
+		} else {
+			// Handle form data for web requests
+			if err := r.ParseForm(); err != nil {
+				http.Error(w, "Failed to parse form", http.StatusBadRequest)
+				return
+			}
 
-		// Check for method override
-		if r.FormValue("_method") != "PUT" {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			return
+			// Check for method override
+			if r.FormValue("_method") != "PUT" {
+				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+				return
+			}
+			
+			name = r.FormValue("name")
+			dateStr = r.FormValue("date")
+			durationStr = r.FormValue("duration")
+			notes = r.FormValue("notes")
 		}
-
-		name := r.FormValue("name")
-		dateStr := r.FormValue("date")
-		durationStr := r.FormValue("duration")
-		notes := r.FormValue("notes")
 
 		// Parse date
 		date, err := time.Parse("2006-01-02", dateStr)
@@ -357,8 +373,14 @@ func (h *Handler) UpdateWorkout(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Redirect to the updated workout
-		http.Redirect(w, r, "/workouts/"+strconv.Itoa(id), http.StatusSeeOther)
+		if r.Method == "PUT" {
+			// API request - return JSON
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(workout)
+		} else {
+			// Web form request - redirect
+			http.Redirect(w, r, "/workouts/"+strconv.Itoa(id), http.StatusSeeOther)
+		}
 		return
 	}
 
@@ -676,6 +698,21 @@ func (h *Handler) AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		log.Printf("Authentication successful, proceeding to %s", r.URL.Path)
 		next.ServeHTTP(w, r)
 	})
+}
+
+// Helper function to get current user ID from session
+func (h *Handler) getCurrentUserID(r *http.Request) (int, error) {
+	session, err := h.store.Get(r, "session-name")
+	if err != nil {
+		return 0, err
+	}
+	
+	userID, ok := session.Values["user_id"].(int)
+	if !ok {
+		return 0, fmt.Errorf("user not authenticated")
+	}
+	
+	return userID, nil
 }
 
 // Helper function to get user settings for templates

@@ -89,7 +89,7 @@
             <h2>Exercises</h2>
             <div class="exercises-list">
                 {{range .Workout.Exercises}}
-                <div class="exercise-card">
+                <div class="exercise-card" data-exercise-id="{{.ID}}">
                     <div class="exercise-header">
                         <div class="exercise-title-section">
                             <h3>{{.Name}}</h3>
@@ -133,13 +133,14 @@
                                     </tr>
                                 </thead>
                                 <tbody>
+                                    {{$exerciseCategory := .Category}}
                                     {{range .Sets}}
                                     <tr data-set-id="{{.ID}}">
                                         <td>{{.SetNumber}}</td>
-                                        {{if eq $.Category "strength"}}
+                                        {{if eq $exerciseCategory "strength"}}
                                         <td>{{.Reps}}</td>
                                         <td>{{.Weight}} lbs</td>
-                                        {{else if eq $.Category "cardio"}}
+                                        {{else if eq $exerciseCategory "cardio"}}
                                         <td>{{.Duration}}s</td>
                                         <td>{{.Distance}} miles</td>
                                         {{else}}
@@ -164,7 +165,7 @@
                     {{else}}
                     <div class="empty-sets">
                         <p>No sets recorded for this exercise</p>
-                        <button class="btn btn-small btn-primary">Add Set</button>
+                        <button class="btn btn-small btn-primary" onclick="addSet({{.ID}}, '{{.Category}}')">Add Set</button>
                     </div>
                     {{end}}
                 </div>
@@ -337,6 +338,7 @@ function closeAddSetModal() {
 
 // Exercise functionality
 function editExercise(id, name, category) {
+    console.log('editExercise called with:', id, name, category);
     document.getElementById('editExerciseId').value = id;
     document.getElementById('editExerciseName').value = name;
     document.getElementById('editExerciseCategory').value = category;
@@ -344,7 +346,9 @@ function editExercise(id, name, category) {
 }
 
 function deleteExercise(id) {
+    console.log('deleteExercise called with:', id);
     if (confirm('Are you sure you want to delete this exercise and all its sets?')) {
+        console.log('Making DELETE request to /api/exercises/' + id);
         fetch(`/api/exercises/${id}`, {
             method: 'DELETE',
         })
@@ -364,6 +368,7 @@ function deleteExercise(id) {
 
 // Set functionality
 function addSet(exerciseId, category) {
+    console.log('addSet called with:', exerciseId, category);
     document.getElementById('addSetExerciseId').value = exerciseId;
     document.getElementById('addSetCategory').value = category;
     
