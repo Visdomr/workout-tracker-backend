@@ -6,6 +6,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"time"
 
@@ -29,7 +30,14 @@ func New(db *database.DB) *Handler {
 	// Load templates with proper parsing for inheritance
 	templates := template.Must(template.ParseGlob("web/templates/*.html"))
 	
-	store := sessions.NewCookieStore([]byte("something-very-secret"))
+	// Get session secret from environment variable
+	sessionSecret := os.Getenv("SESSION_SECRET")
+	if sessionSecret == "" {
+		log.Println("WARNING: SESSION_SECRET not set, using default (insecure for production)")
+		sessionSecret = "default-insecure-secret-change-in-production"
+	}
+	
+	store := sessions.NewCookieStore([]byte(sessionSecret))
 	// Configure session options
 	store.Options = &sessions.Options{
 		Path:     "/",
