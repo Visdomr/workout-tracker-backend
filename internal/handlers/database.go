@@ -3,6 +3,8 @@ package handlers
 import (
 	"database/sql"
 	"fmt"
+	"log"
+	"math"
 	"time"
 
 	"workout-tracker/internal/models"
@@ -199,7 +201,7 @@ func (h *Handler) createExercise(exercise models.Exercise) (int, error) {
 // getAllPredefinedExercises returns all predefined exercises
 func (h *Handler) getAllPredefinedExercises() ([]models.PredefinedExercise, error) {
 	query := `
-		SELECT id, name, category, description, created_at, updated_at
+		SELECT id, name, category, description, video_url, instructions, tips, muscle_groups, equipment, difficulty, image_url, created_at, updated_at
 		FROM predefined_exercises
 		ORDER BY category, name
 	`
@@ -213,7 +215,7 @@ func (h *Handler) getAllPredefinedExercises() ([]models.PredefinedExercise, erro
 	var exercises []models.PredefinedExercise
 	for rows.Next() {
 		var e models.PredefinedExercise
-		err := rows.Scan(&e.ID, &e.Name, &e.Category, &e.Description, &e.CreatedAt, &e.UpdatedAt)
+		err := rows.Scan(&e.ID, &e.Name, &e.Category, &e.Description, &e.VideoURL, &e.Instructions, &e.Tips, &e.MuscleGroups, &e.Equipment, &e.Difficulty, &e.ImageURL, &e.CreatedAt, &e.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -226,7 +228,7 @@ func (h *Handler) getAllPredefinedExercises() ([]models.PredefinedExercise, erro
 // getPredefinedExercisesByCategory returns predefined exercises by category
 func (h *Handler) getPredefinedExercisesByCategory(category string) ([]models.PredefinedExercise, error) {
 	query := `
-		SELECT id, name, category, description, created_at, updated_at
+		SELECT id, name, category, description, video_url, instructions, tips, muscle_groups, equipment, difficulty, image_url, created_at, updated_at
 		FROM predefined_exercises
 		WHERE category = ?
 		ORDER BY name
@@ -241,7 +243,7 @@ func (h *Handler) getPredefinedExercisesByCategory(category string) ([]models.Pr
 	var exercises []models.PredefinedExercise
 	for rows.Next() {
 		var e models.PredefinedExercise
-		err := rows.Scan(&e.ID, &e.Name, &e.Category, &e.Description, &e.CreatedAt, &e.UpdatedAt)
+		err := rows.Scan(&e.ID, &e.Name, &e.Category, &e.Description, &e.VideoURL, &e.Instructions, &e.Tips, &e.MuscleGroups, &e.Equipment, &e.Difficulty, &e.ImageURL, &e.CreatedAt, &e.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -254,11 +256,11 @@ func (h *Handler) getPredefinedExercisesByCategory(category string) ([]models.Pr
 // createPredefinedExercise creates a new predefined exercise and returns its ID
 func (h *Handler) createPredefinedExercise(exercise models.PredefinedExercise) (int, error) {
 	query := `
-		INSERT INTO predefined_exercises (name, category, description, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?)
+		INSERT INTO predefined_exercises (name, category, description, video_url, instructions, tips, muscle_groups, equipment, difficulty, image_url, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 	
-	result, err := h.db.Exec(query, exercise.Name, exercise.Category, exercise.Description, time.Now(), time.Now())
+	result, err := h.db.Exec(query, exercise.Name, exercise.Category, exercise.Description, exercise.VideoURL, exercise.Instructions, exercise.Tips, exercise.MuscleGroups, exercise.Equipment, exercise.Difficulty, exercise.ImageURL, time.Now(), time.Now())
 	if err != nil {
 		return 0, err
 	}
@@ -583,6 +585,13 @@ func (h *Handler) getAnalyticsData(userID int, days int) (*models.AnalyticsData,
 		workoutStreak++
 	}
 	analytics.WorkoutStreak = workoutStreak
+
+	// Enhanced progress tracking
+	err = h.calculateDetailedProgress(analytics, userID, startDate, endDate)
+	if err != nil {
+		log.Printf("Failed to calculate detailed progress: %v", err)
+		// Don't fail the entire request, just skip detailed analytics
+	}
 
 	return analytics, nil
 }
@@ -921,4 +930,1038 @@ func (h *Handler) deleteUserAccount(userID int) error {
 	}
 	
 	return tx.Commit()
+}
+
+// calculateDetailedProgress computes enhanced analytics data
+func (h *Handler) calculateDetailedProgress(analytics *models.AnalyticsData, userID int, startDate, endDate string) error {
+	// Calculate basic set and rep statistics
+	var totalSets, totalReps int
+	var totalVolume, maxWeight float64
+
+	query := `
+		SELECT 
+			COUNT(s.id) as total_sets,
+			COALESCE(SUM(s.reps), 0) as total_reps,
+			COALESCE(SUM(s.weight * s.reps), 0) as total_volume,
+			COALESCE(MAX(s.weight), 0) as max_weight
+		FROM sets s
+		JOIN exercises e ON s.exercise_id = e.id
+		JOIN workouts w ON e.workout_id = w.id
+		WHERE w.date >= ? AND w.date <= ? AND s.weight > 0
+	`
+
+	err := h.db.QueryRow(query, startDate, endDate).Scan(&totalSets, &totalReps, &totalVolume, &maxWeight)
+	if err != nil {
+		return err
+	}
+
+	analytics.TotalSets = totalSets
+	analytics.TotalReps = totalReps
+	analytics.TotalVolume = totalVolume
+	analytics.MaxWeight = maxWeight
+
+	// Calculate averages
+	if analytics.TotalWorkouts > 0 {
+		analytics.AvgVolume = totalVolume / float64(analytics.TotalWorkouts)
+		analytics.AvgSetsPerWorkout = float64(totalSets) / float64(analytics.TotalWorkouts)
+	}
+	if totalSets > 0 {
+		analytics.AvgRepsPerSet = float64(totalReps) / float64(totalSets)
+	}
+
+	// Get personal records
+	personalRecords, err := h.getPersonalRecords(userID, startDate, endDate)
+	if err != nil {
+		log.Printf("Failed to get personal records: %v", err)
+	} else {
+		analytics.PersonalRecords = personalRecords
+	}
+
+	// Get strength progress for top exercises
+	strengthProgress, err := h.getStrengthProgress(userID, startDate, endDate)
+	if err != nil {
+		log.Printf("Failed to get strength progress: %v", err)
+	} else {
+		analytics.StrengthProgress = strengthProgress
+	}
+
+	// Get workout intensity over time
+	workoutIntensity, err := h.getWorkoutIntensity(userID, startDate, endDate)
+	if err != nil {
+		log.Printf("Failed to get workout intensity: %v", err)
+	} else {
+		analytics.WorkoutIntensity = workoutIntensity
+	}
+
+	// Get most popular exercises
+	mostPopularExercises, err := h.getMostPopularExercises(userID, startDate, endDate)
+	if err != nil {
+		log.Printf("Failed to get popular exercises: %v", err)
+	} else {
+		analytics.MostPopularExercises = mostPopularExercises
+	}
+
+	// Calculate progress trends
+	progressTrends, err := h.getProgressTrends(analytics, userID, startDate, endDate)
+	if err != nil {
+		log.Printf("Failed to get progress trends: %v", err)
+	} else {
+		analytics.ProgressTrends = progressTrends
+	}
+
+	return nil
+}
+
+// getPersonalRecords returns personal records for major exercises
+func (h *Handler) getPersonalRecords(userID int, startDate, endDate string) ([]models.PersonalRecord, error) {
+	query := `
+		SELECT 
+			e.name,
+			MAX(s.weight) as max_weight,
+			s.reps,
+			(s.weight * s.reps) as volume,
+			(s.weight * (1 + s.reps/30.0)) as one_rep_max,
+			w.date
+		FROM sets s
+		JOIN exercises e ON s.exercise_id = e.id
+		JOIN workouts w ON e.workout_id = w.id
+		WHERE w.date >= ? AND w.date <= ? AND s.weight > 0
+		GROUP BY e.name
+		HAVING MAX(s.weight) = s.weight
+		ORDER BY max_weight DESC
+		LIMIT 10
+	`
+
+	rows, err := h.db.Query(query, startDate, endDate)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var records []models.PersonalRecord
+	for rows.Next() {
+		var record models.PersonalRecord
+		err := rows.Scan(&record.ExerciseName, &record.Weight, &record.Reps, &record.Volume, &record.OneRepMax, &record.Date)
+		if err != nil {
+			return nil, err
+		}
+		// Mark as new if achieved in the last 7 days
+		if time.Since(record.Date).Hours() < 168 {
+			record.IsNew = true
+		}
+		records = append(records, record)
+	}
+
+	return records, nil
+}
+
+// getStrengthProgress returns strength progression data for top exercises
+func (h *Handler) getStrengthProgress(userID int, startDate, endDate string) ([]models.StrengthProgress, error) {
+	// Get top 5 exercises by frequency
+	topExercisesQuery := `
+		SELECT e.name, e.category, COUNT(*) as frequency
+		FROM exercises e
+		JOIN workouts w ON e.workout_id = w.id
+		WHERE w.date >= ? AND w.date <= ?
+		GROUP BY e.name, e.category
+		ORDER BY frequency DESC
+		LIMIT 5
+	`
+
+	rows, err := h.db.Query(topExercisesQuery, startDate, endDate)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var progressData []models.StrengthProgress
+	for rows.Next() {
+		var exerciseName, category string
+		var frequency int
+		err := rows.Scan(&exerciseName, &category, &frequency)
+		if err != nil {
+			continue
+		}
+
+		// Get progression data points for this exercise
+		dataPointsQuery := `
+			SELECT 
+				w.date,
+				MAX(s.weight) as max_weight,
+				MAX(s.reps) as max_reps,
+				SUM(s.weight * s.reps) as volume,
+				MAX(s.weight * (1 + s.reps/30.0)) as one_rep_max
+			FROM sets s
+			JOIN exercises e ON s.exercise_id = e.id
+			JOIN workouts w ON e.workout_id = w.id
+			WHERE e.name = ? AND w.date >= ? AND w.date <= ? AND s.weight > 0
+			GROUP BY DATE(w.date)
+			ORDER BY w.date
+		`
+
+		dataRows, err := h.db.Query(dataPointsQuery, exerciseName, startDate, endDate)
+		if err != nil {
+			continue
+		}
+
+		var dataPoints []models.StrengthDataPoint
+		for dataRows.Next() {
+			var point models.StrengthDataPoint
+			err := dataRows.Scan(&point.Date, &point.MaxWeight, &point.MaxReps, &point.Volume, &point.OneRepMax)
+			if err != nil {
+				continue
+			}
+			dataPoints = append(dataPoints, point)
+		}
+		dataRows.Close()
+
+		// Calculate trend
+		trend := "stable"
+		trendPercent := 0.0
+		if len(dataPoints) > 1 {
+			firstWeight := dataPoints[0].MaxWeight
+			lastWeight := dataPoints[len(dataPoints)-1].MaxWeight
+			if firstWeight > 0 {
+				trendPercent = ((lastWeight - firstWeight) / firstWeight) * 100
+				if trendPercent > 5 {
+					trend = "improving"
+				} else if trendPercent < -5 {
+					trend = "declining"
+				}
+			}
+		}
+
+		progressData = append(progressData, models.StrengthProgress{
+			ExerciseName: exerciseName,
+			Category:     category,
+			DataPoints:   dataPoints,
+			Trend:        trend,
+			TrendPercent: trendPercent,
+		})
+	}
+
+	return progressData, nil
+}
+
+// getWorkoutIntensity returns workout intensity metrics over time
+func (h *Handler) getWorkoutIntensity(userID int, startDate, endDate string) ([]models.WorkoutIntensity, error) {
+	query := `
+		SELECT 
+			w.date,
+			COALESCE(SUM(s.weight * s.reps), 0) as total_volume,
+			COALESCE(AVG(s.weight), 0) as avg_weight,
+			COUNT(s.id) as total_sets,
+			COALESCE(SUM(s.reps), 0) as total_reps
+		FROM workouts w
+		LEFT JOIN exercises e ON w.id = e.workout_id
+		LEFT JOIN sets s ON e.id = s.exercise_id
+		WHERE w.date >= ? AND w.date <= ?
+		GROUP BY w.date
+		ORDER BY w.date
+	`
+
+	rows, err := h.db.Query(query, startDate, endDate)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var intensityData []models.WorkoutIntensity
+	for rows.Next() {
+		var intensity models.WorkoutIntensity
+		err := rows.Scan(&intensity.Date, &intensity.TotalVolume, &intensity.AvgWeight, &intensity.TotalSets, &intensity.TotalReps)
+		if err != nil {
+			continue
+		}
+
+		// Calculate intensity score (volume normalized by sets)
+		if intensity.TotalSets > 0 {
+			intensity.IntensityScore = intensity.TotalVolume / float64(intensity.TotalSets)
+		}
+
+		intensityData = append(intensityData, intensity)
+	}
+
+	return intensityData, nil
+}
+
+// getMostPopularExercises returns the most frequently performed exercises
+func (h *Handler) getMostPopularExercises(userID int, startDate, endDate string) ([]models.ExerciseFrequency, error) {
+	query := `
+		SELECT 
+			e.name,
+			e.category,
+			COUNT(*) as count,
+			MAX(w.date) as last_performed
+		FROM exercises e
+		JOIN workouts w ON e.workout_id = w.id
+		WHERE w.date >= ? AND w.date <= ?
+		GROUP BY e.name, e.category
+		ORDER BY count DESC
+		LIMIT 10
+	`
+
+	rows, err := h.db.Query(query, startDate, endDate)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	// First pass: get total count
+	totalExercises := 0
+	var exercises []struct {
+		name         string
+		category     string
+		count        int
+		lastPerformed time.Time
+	}
+
+	for rows.Next() {
+		var ex struct {
+			name         string
+			category     string
+			count        int
+			lastPerformed time.Time
+		}
+		err := rows.Scan(&ex.name, &ex.category, &ex.count, &ex.lastPerformed)
+		if err != nil {
+			continue
+		}
+		totalExercises += ex.count
+		exercises = append(exercises, ex)
+	}
+
+	// Second pass: calculate percentages
+	var frequencyData []models.ExerciseFrequency
+	for _, ex := range exercises {
+		percentage := 0.0
+		if totalExercises > 0 {
+			percentage = (float64(ex.count) / float64(totalExercises)) * 100
+		}
+
+		frequencyData = append(frequencyData, models.ExerciseFrequency{
+			ExerciseName:  ex.name,
+			Category:      ex.category,
+			Count:         ex.count,
+			Percentage:    percentage,
+			LastPerformed: ex.lastPerformed,
+		})
+	}
+
+	return frequencyData, nil
+}
+
+// getProgressTrends calculates overall progress trends
+func (h *Handler) getProgressTrends(analytics *models.AnalyticsData, userID int, startDate, endDate string) (*models.ProgressTrends, error) {
+	trends := &models.ProgressTrends{}
+
+	// Calculate date range for comparison (previous period)
+	start, _ := time.Parse("2006-01-02", startDate)
+	end, _ := time.Parse("2006-01-02", endDate)
+	daysDiff := int(end.Sub(start).Hours() / 24)
+
+	prevStartDate := start.AddDate(0, 0, -daysDiff).Format("2006-01-02")
+	prevEndDate := start.AddDate(0, 0, -1).Format("2006-01-02")
+
+	// Compare volume trends
+	var currentVolume, previousVolume float64
+	volumeQuery := `
+		SELECT COALESCE(SUM(s.weight * s.reps), 0) as total_volume
+		FROM sets s
+		JOIN exercises e ON s.exercise_id = e.id
+		JOIN workouts w ON e.workout_id = w.id
+		WHERE w.date >= ? AND w.date <= ?
+	`
+
+	h.db.QueryRow(volumeQuery, startDate, endDate).Scan(&currentVolume)
+	h.db.QueryRow(volumeQuery, prevStartDate, prevEndDate).Scan(&previousVolume)
+
+	if previousVolume > 0 {
+		trends.VolumeChangePercent = ((currentVolume - previousVolume) / previousVolume) * 100
+		if trends.VolumeChangePercent > 5 {
+			trends.Volumetrend = "up"
+		} else if trends.VolumeChangePercent < -5 {
+			trends.Volumetrend = "down"
+		} else {
+			trends.Volumetrend = "stable"
+		}
+	} else {
+		trends.Volumetrend = "stable"
+	}
+
+	// Compare strength trends (max weight)
+	var currentMaxWeight, previousMaxWeight float64
+	maxWeightQuery := `
+		SELECT COALESCE(MAX(s.weight), 0) as max_weight
+		FROM sets s
+		JOIN exercises e ON s.exercise_id = e.id
+		JOIN workouts w ON e.workout_id = w.id
+		WHERE w.date >= ? AND w.date <= ?
+	`
+
+	h.db.QueryRow(maxWeightQuery, startDate, endDate).Scan(&currentMaxWeight)
+	h.db.QueryRow(maxWeightQuery, prevStartDate, prevEndDate).Scan(&previousMaxWeight)
+
+	if previousMaxWeight > 0 {
+		trends.StrengthChangePercent = ((currentMaxWeight - previousMaxWeight) / previousMaxWeight) * 100
+		if trends.StrengthChangePercent > 2 {
+			trends.StrengthTrend = "up"
+		} else if trends.StrengthChangePercent < -2 {
+			trends.StrengthTrend = "down"
+		} else {
+			trends.StrengthTrend = "stable"
+		}
+	} else {
+		trends.StrengthTrend = "stable"
+	}
+
+	// Compare frequency trends
+	var currentWorkouts, previousWorkouts int
+	workoutQuery := `SELECT COUNT(*) FROM workouts WHERE date >= ? AND date <= ?`
+
+	h.db.QueryRow(workoutQuery, startDate, endDate).Scan(&currentWorkouts)
+	h.db.QueryRow(workoutQuery, prevStartDate, prevEndDate).Scan(&previousWorkouts)
+
+	if previousWorkouts > 0 {
+		trends.FrequencyChangePercent = ((float64(currentWorkouts) - float64(previousWorkouts)) / float64(previousWorkouts)) * 100
+		if trends.FrequencyChangePercent > 10 {
+			trends.FrequencyTrend = "up"
+		} else if trends.FrequencyChangePercent < -10 {
+			trends.FrequencyTrend = "down"
+		} else {
+			trends.FrequencyTrend = "stable"
+		}
+	} else {
+		trends.FrequencyTrend = "stable"
+	}
+
+	// Calculate consistency score based on workout frequency
+	expectedWorkouts := float64(daysDiff) / 7 * 3 // Assume 3 workouts per week is ideal
+	if expectedWorkouts > 0 {
+		consistency := math.Min((float64(currentWorkouts)/expectedWorkouts)*100, 100)
+		trends.ConsistencyScore = math.Max(consistency, 0)
+	}
+
+	return trends, nil
+}
+
+// getExerciseProgressChart generates progress data for a specific exercise
+func (h *Handler) getExerciseProgressChart(userID int, exerciseName string, startDate, endDate string) (*models.ExerciseProgressChart, error) {
+	chart := &models.ExerciseProgressChart{
+		ExerciseName: exerciseName,
+		TimeRange:   fmt.Sprintf("%s to %s", startDate, endDate),
+	}
+
+	// Get basic workout stats for the exercise
+	query := `
+		SELECT 
+			w.id as workout_id,
+			w.date,
+			MAX(s.weight) as max_weight,
+			MAX(s.reps) as max_reps,
+			SUM(s.weight * s.reps) as total_volume,
+			COUNT(s.id) as sets_count
+		FROM sets s
+		JOIN exercises e ON s.exercise_id = e.id
+		JOIN workouts w ON e.workout_id = w.id
+		WHERE e.name = ? AND w.date >= ? AND w.date <= ?
+		GROUP BY w.id, w.date
+		ORDER BY w.date
+	`
+
+	rows, err := h.db.Query(query, exerciseName, startDate, endDate)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var dataPoints []models.ExerciseProgressPoint
+	for rows.Next() {
+		var point models.ExerciseProgressPoint
+		var dateStr string
+		err := rows.Scan(&point.WorkoutID, &dateStr, &point.MaxWeight, &point.MaxReps, &point.TotalVolume, &point.SetsCount)
+		if err != nil {
+			return nil, err
+		}
+		// Parse date string
+		point.Date, err = time.Parse("2006-01-02", dateStr)
+		if err != nil {
+			// If parsing fails, use current time
+			point.Date = time.Now()
+		}
+		// Calculate one rep max
+		point.OneRepMax = point.MaxWeight * float64(1+point.MaxReps/30.0)
+		dataPoints = append(dataPoints, point)
+	}
+	chart.DataPoints = dataPoints
+
+	// Calculate statistics
+	stats, err := h.calculateExerciseStatistics(dataPoints)
+	if err != nil {
+		return nil, err
+	}
+	chart.Statistics = *stats
+
+	// Identify milestones
+	milestones, err := h.identifyExerciseMilestones(dataPoints)
+	if err != nil {
+		return nil, err
+	}
+	chart.Milestones = milestones
+
+	return chart, nil
+}
+
+// calculateExerciseStatistics computes overall statistics from progress data
+func (h *Handler) calculateExerciseStatistics(dataPoints []models.ExerciseProgressPoint) (*models.ExerciseStatistics, error) {
+	stats := &models.ExerciseStatistics{}
+	
+	if len(dataPoints) == 0 {
+		return stats, nil
+	}
+
+	var totalWeight, totalReps, totalVolume float64
+	var firstDate, lastDate time.Time
+
+	totalSessions := len(dataPoints)
+	firstDate = dataPoints[0].Date
+	lastDate = dataPoints[len(dataPoints)-1].Date
+
+	maxWeight := 0.0
+	maxReps := 0
+	maxVolume := 0.0
+
+	for _, point := range dataPoints {
+		totalWeight += point.MaxWeight
+		totalReps += float64(point.MaxReps)
+		totalVolume += point.TotalVolume
+
+		if point.MaxWeight > maxWeight {
+			maxWeight = point.MaxWeight
+		}
+		if point.MaxReps > maxReps {
+			maxReps = point.MaxReps
+		}
+		if point.TotalVolume > maxVolume {
+			maxVolume = point.TotalVolume
+		}
+	}
+
+	totalDays := lastDate.Sub(firstDate).Hours() / 24
+	weeks := totalDays / 7
+	progressRate := 0.0
+	if weeks > 0 {
+		progressRate = totalWeight / weeks // Simplified for illustrative purposes
+	}
+
+	stats.TotalSessions = totalSessions
+	stats.TotalSets = totalSessions * 2 // Example calculation
+	stats.TotalReps = int(totalReps)
+	stats.TotalVolume = totalVolume
+	stats.AverageWeight = totalWeight / float64(totalSessions)
+	stats.AverageReps = totalReps / float64(totalSessions)
+	stats.MaxWeightEver = maxWeight
+	stats.MaxRepsEver = maxReps
+	stats.MaxVolumeDay = maxVolume
+	if weeks > 0 {
+		stats.Consistency = float64(totalSessions) / weeks
+	}
+	stats.ProgressRate = progressRate
+	stats.FirstWorkout = firstDate
+	stats.LastWorkout = lastDate
+
+	return stats, nil
+}
+
+// identifyExerciseMilestones identifies key milestones achieved for an exercise
+func (h *Handler) identifyExerciseMilestones(dataPoints []models.ExerciseProgressPoint) ([]models.ExerciseMilestone, error) {
+	// Example milestones - replace with real logic
+	milestones := []models.ExerciseMilestone{
+		{
+			ID:             1,
+			Type:           "weight",
+			Description:    "First 100lb lift",
+			Value:          100,
+			Unit:           "lbs",
+			AchievedAt:     dataPoints[0].Date, // Placeholder
+			WorkoutID:      dataPoints[0].WorkoutID,
+			IsPersonalRecord: true,
+		},
+	}
+
+	return milestones, nil
+}
+
+// getWeeklySummary generates a comprehensive weekly summary for a user
+func (h *Handler) getWeeklySummary(userID int, year int, week int) (*models.WeeklySummary, error) {
+	// Calculate week start and end dates
+	weekStart := time.Date(year, 1, 1, 0, 0, 0, 0, time.UTC)
+	daysToAdd := (week-1)*7 - int(weekStart.Weekday())
+	weekStart = weekStart.AddDate(0, 0, daysToAdd)
+	weekEnd := weekStart.AddDate(0, 0, 6)
+
+	startDate := weekStart.Format("2006-01-02")
+	endDate := weekEnd.Format("2006-01-02")
+
+	summary := &models.WeeklySummary{
+		WeekStart:  weekStart,
+		WeekEnd:    weekEnd,
+		WeekNumber: week,
+		Year:       year,
+	}
+
+	// Get basic workout statistics
+	var totalWorkouts, totalDuration int
+	var avgDuration sql.NullFloat64
+	query := `
+		SELECT 
+			COUNT(*) as total_workouts,
+			COALESCE(SUM(duration), 0) as total_duration,
+			COALESCE(AVG(duration), 0) as avg_duration
+		FROM workouts 
+		WHERE date >= ? AND date <= ?
+	`
+	err := h.db.QueryRow(query, startDate, endDate).Scan(&totalWorkouts, &totalDuration, &avgDuration)
+	if err != nil {
+		return nil, err
+	}
+
+	summary.TotalWorkouts = totalWorkouts
+	summary.TotalDuration = totalDuration
+	if avgDuration.Valid {
+		summary.AvgDuration = avgDuration.Float64
+	}
+
+	// Get exercise and set statistics
+	var totalSets, totalReps int
+	var totalVolume, maxWeight float64
+	var uniqueExercises int
+	exerciseQuery := `
+		SELECT 
+			COUNT(DISTINCT e.name) as unique_exercises,
+			COUNT(s.id) as total_sets,
+			COALESCE(SUM(s.reps), 0) as total_reps,
+			COALESCE(SUM(s.weight * s.reps), 0) as total_volume,
+			COALESCE(MAX(s.weight), 0) as max_weight
+		FROM workouts w
+		LEFT JOIN exercises e ON w.id = e.workout_id
+		LEFT JOIN sets s ON e.id = s.exercise_id
+		WHERE w.date >= ? AND w.date <= ? AND s.weight > 0
+	`
+	err = h.db.QueryRow(exerciseQuery, startDate, endDate).Scan(&uniqueExercises, &totalSets, &totalReps, &totalVolume, &maxWeight)
+	if err != nil {
+		return nil, err
+	}
+
+	summary.UniqueExercises = uniqueExercises
+	summary.TotalSets = totalSets
+	summary.TotalReps = totalReps
+	summary.TotalVolume = totalVolume
+	summary.MaxWeight = maxWeight
+
+	// Get nutrition data
+	var avgCalories sql.NullFloat64
+	calorieQuery := `
+		SELECT AVG(calories) as avg_calories
+		FROM meals 
+		WHERE user_id = ? AND date >= ? AND date <= ?
+	`
+	err = h.db.QueryRow(calorieQuery, userID, startDate, endDate).Scan(&avgCalories)
+	if err == nil && avgCalories.Valid {
+		summary.AvgCalories = int(avgCalories.Float64)
+	}
+
+	// Get weight change
+	weightChange, err := h.getWeightChangeForPeriod(userID, startDate, endDate)
+	if err == nil {
+		summary.WeightChange = weightChange
+	}
+
+	// Get top exercises
+	topExercises, err := h.getTopExercisesForPeriod(userID, startDate, endDate, 3)
+	if err == nil {
+		summary.TopExercises = topExercises
+	}
+
+	// Count personal records achieved
+	prCount, err := h.countPRsForPeriod(userID, startDate, endDate)
+	if err == nil {
+		summary.PRsAchieved = prCount
+	}
+
+	// Calculate consistency score (out of 7 days)
+	if totalWorkouts > 0 {
+		summary.ConsistencyScore = math.Min((float64(totalWorkouts)/3.0)*100, 100) // 3 workouts = 100%
+	}
+
+	// Calculate intensity score
+	if totalSets > 0 {
+		summary.IntensityScore = totalVolume / float64(totalSets)
+	}
+
+	return summary, nil
+}
+
+// getMonthlySummary generates a comprehensive monthly summary for a user
+func (h *Handler) getMonthlySummary(userID int, year int, month int) (*models.MonthlySummary, error) {
+	startDate := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.UTC)
+	endDate := startDate.AddDate(0, 1, -1) // Last day of the month
+
+	startStr := startDate.Format("2006-01-02")
+	endStr := endDate.Format("2006-01-02")
+
+	summary := &models.MonthlySummary{
+		Month:     month,
+		Year:      year,
+		MonthName: startDate.Format("January"),
+	}
+
+	// Get basic workout statistics
+	var totalWorkouts, totalDuration int
+	var avgDuration sql.NullFloat64
+	query := `
+		SELECT 
+			COUNT(*) as total_workouts,
+			COALESCE(SUM(duration), 0) as total_duration,
+			COALESCE(AVG(duration), 0) as avg_duration
+		FROM workouts 
+		WHERE date >= ? AND date <= ?
+	`
+	err := h.db.QueryRow(query, startStr, endStr).Scan(&totalWorkouts, &totalDuration, &avgDuration)
+	if err != nil {
+		return nil, err
+	}
+
+	summary.TotalWorkouts = totalWorkouts
+	summary.TotalDuration = totalDuration
+	if avgDuration.Valid {
+		summary.AvgDuration = avgDuration.Float64
+	}
+
+	// Get exercise and set statistics
+	var totalSets, totalReps int
+	var totalVolume, maxWeight float64
+	var uniqueExercises int
+	exerciseQuery := `
+		SELECT 
+			COUNT(DISTINCT e.name) as unique_exercises,
+			COUNT(s.id) as total_sets,
+			COALESCE(SUM(s.reps), 0) as total_reps,
+			COALESCE(SUM(s.weight * s.reps), 0) as total_volume,
+			COALESCE(MAX(s.weight), 0) as max_weight
+		FROM workouts w
+		LEFT JOIN exercises e ON w.id = e.workout_id
+		LEFT JOIN sets s ON e.id = s.exercise_id
+		WHERE w.date >= ? AND w.date <= ? AND s.weight > 0
+	`
+	err = h.db.QueryRow(exerciseQuery, startStr, endStr).Scan(&uniqueExercises, &totalSets, &totalReps, &totalVolume, &maxWeight)
+	if err != nil {
+		return nil, err
+	}
+
+	summary.UniqueExercises = uniqueExercises
+	summary.TotalSets = totalSets
+	summary.TotalReps = totalReps
+	summary.TotalVolume = totalVolume
+	summary.MaxWeight = maxWeight
+
+	// Get nutrition data
+	var avgCalories sql.NullFloat64
+	calorieQuery := `
+		SELECT AVG(calories) as avg_calories
+		FROM meals 
+		WHERE user_id = ? AND date >= ? AND date <= ?
+	`
+	err = h.db.QueryRow(calorieQuery, userID, startStr, endStr).Scan(&avgCalories)
+	if err == nil && avgCalories.Valid {
+		summary.AvgCalories = int(avgCalories.Float64)
+	}
+
+	// Get weight data
+	startWeight, endWeight, weightChange, err := h.getWeightDataForPeriod(userID, startStr, endStr)
+	if err == nil {
+		summary.StartWeight = startWeight
+		summary.EndWeight = endWeight
+		summary.WeightChange = weightChange
+	}
+
+	// Get top exercises
+	topExercises, err := h.getTopExercisesForPeriod(userID, startStr, endStr, 5)
+	if err == nil {
+		summary.TopExercises = topExercises
+	}
+
+	// Count personal records achieved
+	prCount, err := h.countPRsForPeriod(userID, startStr, endStr)
+	if err == nil {
+		summary.PRsAchieved = prCount
+	}
+
+	// Calculate consistency score (assuming 12 workouts per month is ideal)
+	if totalWorkouts > 0 {
+		summary.ConsistencyScore = math.Min((float64(totalWorkouts)/12.0)*100, 100)
+	}
+
+	// Calculate intensity score
+	if totalSets > 0 {
+		summary.IntensityScore = totalVolume / float64(totalSets)
+	}
+
+	// Get weekly summaries for the month
+	weeklySummaries, err := h.getWeeklySummariesForMonth(userID, year, month)
+	if err == nil {
+		summary.WeeklySummaries = weeklySummaries
+	}
+
+	// Get category breakdown
+	categoryBreakdown, err := h.getCategoryBreakdownForPeriod(userID, startStr, endStr)
+	if err == nil {
+		summary.CategoryBreakdown = categoryBreakdown
+	}
+
+	// Generate progress highlights, goals, and recommendations
+	summary.ProgressHighlights = h.generateProgressHighlights(summary)
+	summary.GoalsAchieved = h.generateGoalsAchieved(summary)
+	summary.Recommendations = h.generateRecommendations(summary)
+
+	return summary, nil
+}
+
+// Helper functions for summary calculations
+func (h *Handler) getWeightChangeForPeriod(userID int, startDate, endDate string) (float64, error) {
+	var startWeight, endWeight sql.NullFloat64
+	
+	// Get first weight in period
+	startQuery := `
+		SELECT weight FROM body_weights 
+		WHERE user_id = ? AND date >= ? 
+		ORDER BY date ASC LIMIT 1
+	`
+	h.db.QueryRow(startQuery, userID, startDate).Scan(&startWeight)
+	
+	// Get last weight in period
+	endQuery := `
+		SELECT weight FROM body_weights 
+		WHERE user_id = ? AND date <= ? 
+		ORDER BY date DESC LIMIT 1
+	`
+	h.db.QueryRow(endQuery, userID, endDate).Scan(&endWeight)
+	
+	if startWeight.Valid && endWeight.Valid {
+		return endWeight.Float64 - startWeight.Float64, nil
+	}
+	return 0, nil
+}
+
+func (h *Handler) getWeightDataForPeriod(userID int, startDate, endDate string) (float64, float64, float64, error) {
+	var startWeight, endWeight sql.NullFloat64
+	
+	// Get first weight in period
+	startQuery := `
+		SELECT weight FROM body_weights 
+		WHERE user_id = ? AND date >= ? 
+		ORDER BY date ASC LIMIT 1
+	`
+	h.db.QueryRow(startQuery, userID, startDate).Scan(&startWeight)
+	
+	// Get last weight in period
+	endQuery := `
+		SELECT weight FROM body_weights 
+		WHERE user_id = ? AND date <= ? 
+		ORDER BY date DESC LIMIT 1
+	`
+	h.db.QueryRow(endQuery, userID, endDate).Scan(&endWeight)
+	
+	start := 0.0
+	end := 0.0
+	change := 0.0
+	
+	if startWeight.Valid {
+		start = startWeight.Float64
+	}
+	if endWeight.Valid {
+		end = endWeight.Float64
+	}
+	if startWeight.Valid && endWeight.Valid {
+		change = end - start
+	}
+	
+	return start, end, change, nil
+}
+
+func (h *Handler) getTopExercisesForPeriod(userID int, startDate, endDate string, limit int) ([]string, error) {
+	query := `
+		SELECT e.name, COUNT(*) as frequency
+		FROM exercises e
+		JOIN workouts w ON e.workout_id = w.id
+		WHERE w.date >= ? AND w.date <= ?
+		GROUP BY e.name
+		ORDER BY frequency DESC
+		LIMIT ?
+	`
+	
+	rows, err := h.db.Query(query, startDate, endDate, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	
+	var exercises []string
+	for rows.Next() {
+		var name string
+		var frequency int
+		err := rows.Scan(&name, &frequency)
+		if err != nil {
+			continue
+		}
+		exercises = append(exercises, name)
+	}
+	
+	return exercises, nil
+}
+
+func (h *Handler) countPRsForPeriod(userID int, startDate, endDate string) (int, error) {
+	// Count exercises where max weight in this period > previous max
+	query := `
+		SELECT COUNT(DISTINCT e.name) as pr_count
+		FROM exercises e
+		JOIN workouts w ON e.workout_id = w.id
+		JOIN sets s ON e.id = s.exercise_id
+		WHERE w.date >= ? AND w.date <= ?
+		AND s.weight = (
+			SELECT MAX(s2.weight)
+			FROM sets s2
+			JOIN exercises e2 ON s2.exercise_id = e2.id
+			JOIN workouts w2 ON e2.workout_id = w2.id
+			WHERE e2.name = e.name
+		)
+	`
+	
+	var count int
+	err := h.db.QueryRow(query, startDate, endDate).Scan(&count)
+	return count, err
+}
+
+func (h *Handler) getWeeklySummariesForMonth(userID int, year int, month int) ([]models.WeeklySummary, error) {
+	// Get all weeks that overlap with this month
+	startDate := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.UTC)
+	endDate := startDate.AddDate(0, 1, -1)
+	
+	var summaries []models.WeeklySummary
+	
+	// Find weeks that overlap with this month
+	_, startWeek := startDate.ISOWeek()
+	_, endWeek := endDate.ISOWeek()
+	
+	for week := startWeek; week <= endWeek; week++ {
+		summary, err := h.getWeeklySummary(userID, year, week)
+		if err == nil {
+			summaries = append(summaries, *summary)
+		}
+	}
+	
+	return summaries, nil
+}
+
+func (h *Handler) getCategoryBreakdownForPeriod(userID int, startDate, endDate string) (map[string]int, error) {
+	query := `
+		SELECT e.category, COUNT(*) as count
+		FROM exercises e
+		JOIN workouts w ON e.workout_id = w.id
+		WHERE w.date >= ? AND w.date <= ?
+		GROUP BY e.category
+	`
+	
+	rows, err := h.db.Query(query, startDate, endDate)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	
+	breakdown := make(map[string]int)
+	for rows.Next() {
+		var category string
+		var count int
+		err := rows.Scan(&category, &count)
+		if err != nil {
+			continue
+		}
+		breakdown[category] = count
+	}
+	
+	return breakdown, nil
+}
+
+// Generate insights and recommendations
+func (h *Handler) generateProgressHighlights(summary *models.MonthlySummary) []string {
+	highlights := []string{}
+	
+	if summary.TotalWorkouts > 12 {
+		highlights = append(highlights, fmt.Sprintf("Great consistency with %d workouts this month!", summary.TotalWorkouts))
+	}
+	
+	if summary.WeightChange < -2 {
+		highlights = append(highlights, fmt.Sprintf("Excellent weight loss of %.1f lbs", math.Abs(summary.WeightChange)))
+	} else if summary.WeightChange > 2 {
+		highlights = append(highlights, fmt.Sprintf("Good weight gain of %.1f lbs", summary.WeightChange))
+	}
+	
+	if summary.PRsAchieved > 5 {
+		highlights = append(highlights, fmt.Sprintf("Outstanding! %d new personal records", summary.PRsAchieved))
+	}
+	
+	if summary.TotalVolume > 50000 {
+		highlights = append(highlights, fmt.Sprintf("Impressive total volume of %.0f lbs lifted", summary.TotalVolume))
+	}
+	
+	return highlights
+}
+
+func (h *Handler) generateGoalsAchieved(summary *models.MonthlySummary) []string {
+	goals := []string{}
+	
+	if summary.ConsistencyScore >= 80 {
+		goals = append(goals, "Consistency Goal: 80%+ workout attendance")
+	}
+	
+	if summary.PRsAchieved >= 3 {
+		goals = append(goals, "Strength Goal: 3+ new personal records")
+	}
+	
+	if summary.UniqueExercises >= 10 {
+		goals = append(goals, "Variety Goal: 10+ different exercises")
+	}
+	
+	return goals
+}
+
+func (h *Handler) generateRecommendations(summary *models.MonthlySummary) []string {
+	recommendations := []string{}
+	
+	if summary.ConsistencyScore < 50 {
+		recommendations = append(recommendations, "Try to maintain at least 3 workouts per week for better results")
+	}
+	
+	if summary.UniqueExercises < 8 {
+		recommendations = append(recommendations, "Consider adding more exercise variety to target different muscle groups")
+	}
+	
+	if summary.PRsAchieved == 0 {
+		recommendations = append(recommendations, "Focus on progressive overload to achieve new personal records")
+	}
+	
+	// Check category balance
+	if len(summary.CategoryBreakdown) > 0 {
+		hasCardio := summary.CategoryBreakdown["cardio"] > 0
+		hasStrength := summary.CategoryBreakdown["strength"] > 0 || summary.CategoryBreakdown["chest"] > 0 || summary.CategoryBreakdown["back"] > 0
+		
+		if !hasCardio {
+			recommendations = append(recommendations, "Consider adding cardio exercises for cardiovascular health")
+		}
+		if !hasStrength {
+			recommendations = append(recommendations, "Include strength training for muscle development")
+		}
+	}
+	
+	return recommendations
 }

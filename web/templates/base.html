@@ -16,26 +16,45 @@
             </div>
             <ul class="nav-menu">
                 <li class="nav-item">
-                    <a href="/" class="nav-link">Dashboard</a>
+                    <a href="/" class="nav-link {{if eq .CurrentPath "/"}}active{{end}}">
+                        <i class="fas fa-home"></i> Dashboard
+                    </a>
                 </li>
                 <li class="nav-item">
-                    <a href="/workouts" class="nav-link">All Workouts</a>
+                    <a href="/workouts" class="nav-link {{if or (eq .CurrentPath "/workouts") (hasPrefix .CurrentPath "/workouts/")}}active{{end}}">
+                        <i class="fas fa-list"></i> Workouts
+                    </a>
                 </li>
                 <li class="nav-item">
-                    <a href="/workouts/new" class="nav-link btn-primary">New Workout</a>
+                    <a href="/workouts/new" class="nav-link">
+                        <i class="fas fa-plus"></i> New Workout
+                    </a>
                 </li>
                 <li class="nav-item">
-                    <a href="/analytics" class="nav-link"><i class="fas fa-chart-line"></i> Analytics</a>
+                    <a href="/analytics" class="nav-link {{if eq .CurrentPath "/analytics"}}active{{end}}">
+                        <i class="fas fa-chart-line"></i> Analytics
+                    </a>
                 </li>
                 <li class="nav-item">
-                    <a href="/profile" class="nav-link"><i class="fas fa-user"></i> Profile</a>
+                    <a href="/exercise-library" class="nav-link {{if eq .CurrentPath "/exercise-library"}}active{{end}}">
+                        <i class="fas fa-book"></i> Exercises
+                    </a>
                 </li>
                 <li class="nav-item">
-                    <a href="/account-settings" class="nav-link"><i class="fas fa-cog"></i> Settings</a>
+                    <a href="/profile" class="nav-link {{if eq .CurrentPath "/profile"}}active{{end}}">
+                        <i class="fas fa-user"></i> Profile
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/account-settings" class="nav-link {{if eq .CurrentPath "/account-settings"}}active{{end}}">
+                        <i class="fas fa-cog"></i> Settings
+                    </a>
                 </li>
                 <li class="nav-item">
                     <form method="POST" action="/logout" style="display: inline;">
-                        <button type="submit" class="nav-link logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</button>
+                        <button type="submit" class="nav-link logout-btn">
+                            <i class="fas fa-sign-out-alt"></i> Logout
+                        </button>
                     </form>
                 </li>
             </ul>

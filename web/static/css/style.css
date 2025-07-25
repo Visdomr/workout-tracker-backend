@@ -17,6 +17,9 @@ body {
     background: linear-gradient(135deg, #ff6b35, #ff8c42);
     padding: 1rem 0;
     box-shadow: 0 4px 12px rgba(255, 107, 53, 0.3);
+    position: sticky;
+    top: 0;
+    z-index: 100;
 }
 
 .nav-container {
@@ -33,41 +36,62 @@ body {
     text-decoration: none;
     font-size: 1.5rem;
     font-weight: bold;
+    display: flex;
+    align-items: center;
 }
 
 .nav-logo i {
     margin-right: 0.5rem;
-    color: #e74c3c;
+    color: rgba(255, 255, 255, 0.9);
 }
 
 .nav-menu {
     display: flex;
     list-style: none;
-    gap: 2rem;
+    gap: 1rem;
+    align-items: center;
 }
 
 .nav-link {
     color: #ecf0f1;
     text-decoration: none;
-    padding: 0.5rem 1rem;
-    border-radius: 4px;
+    padding: 0.7rem 1.2rem;
+    border-radius: 8px;
     transition: all 0.3s ease;
+    font-weight: 500;
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
 }
 
-.nav-link:hover {
+.nav-link:hover,
+.nav-link.active {
     background-color: rgba(255, 255, 255, 0.2);
     color: #fff;
+    transform: translateY(-1px);
 }
 
-.nav-link.btn-primary {
+.nav-link.nav-btn-primary {
     background-color: rgba(255, 255, 255, 0.2);
     color: #fff;
     border: 1px solid rgba(255, 255, 255, 0.3);
+    font-weight: 600;
+    border-radius: 6px;
 }
 
-.nav-link.btn-primary:hover {
+.nav-link.nav-btn-primary:hover {
     background-color: rgba(255, 255, 255, 0.3);
     border-color: rgba(255, 255, 255, 0.5);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.nav-link.active {
+    background-color: rgba(255, 255, 255, 0.25);
+    color: #fff;
+    border-radius: 6px;
+    font-weight: 600;
 }
 
 /* Logout button styling */
@@ -312,6 +336,32 @@ body.dark-mode .footer {
     background-color: #2a2a2a;
     color: #f0f0f0;
 }
+
+body.dark-mode .category-grid {
+    background-color: #1a1a1a;
+}
+
+body.dark-mode .category-section {
+    background: #2a2a2a;
+    color: #f0f0f0;
+}
+
+body.dark-mode .category-header h2 {
+    color: #f0f0f0;
+}
+
+body.dark-mode .category-btn {
+    background: #2a2a2a;
+    color: #f0f0f0;
+    border-color: #555;
+}
+
+body.dark-mode .category-btn:hover {
+    background: linear-gradient(135deg, #2a2a2a 0%, #333 100%);
+    border-color: #ff6b35;
+}
+
+.btn-icon {
     min-width: 60px;
     display: flex;
     align-items: center;

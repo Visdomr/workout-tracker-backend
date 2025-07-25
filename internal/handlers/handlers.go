@@ -857,11 +857,18 @@ func (h *Handler) CreatePredefinedExercise(w http.ResponseWriter, r *http.Reques
 	}
 
 	exercise := models.PredefinedExercise{
-		Name:        req.Name,
-		Category:    req.Category,
-		Description: req.Description,
-		CreatedAt:   time.Now(),
-		UpdatedAt:   time.Now(),
+		Name:         req.Name,
+		Category:     req.Category,
+		Description:  req.Description,
+		VideoURL:     req.VideoURL,
+		Instructions: req.Instructions,
+		Tips:         req.Tips,
+		MuscleGroups: req.MuscleGroups,
+		Equipment:    req.Equipment,
+		Difficulty:   req.Difficulty,
+		ImageURL:     req.ImageURL,
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
 	}
 
 	id, err := h.createPredefinedExercise(exercise)
@@ -1088,6 +1095,97 @@ func (h *Handler) AnalyticsAPI(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(analyticsData)
+}
+
+// WeeklySummaryAPI returns weekly summary data as JSON
+func (h *Handler) WeeklySummaryAPI(w http.ResponseWriter, r *http.Request) {
+	session, _ := h.store.Get(r, "session-name")
+	userID, ok := session.Values["user_id"].(int)
+	if !ok {
+		http.Error(w, "User not found in session", http.StatusUnauthorized)
+		return
+	}
+
+	// Get year and week from query parameters
+	yearParam := r.URL.Query().Get("year")
+	weekParam := r.URL.Query().Get("week")
+
+	// If no parameters provided, use current week
+	var year, week int
+	var err error
+
+	if yearParam == "" || weekParam == "" {
+		now := time.Now()
+		year, week = now.ISOWeek()
+	} else {
+		year, err = strconv.Atoi(yearParam)
+		if err != nil || year < 2020 || year > 2030 {
+			http.Error(w, "Invalid year parameter", http.StatusBadRequest)
+			return
+		}
+
+		week, err = strconv.Atoi(weekParam)
+		if err != nil || week < 1 || week > 53 {
+			http.Error(w, "Invalid week parameter", http.StatusBadRequest)
+			return
+		}
+	}
+
+	summary, err := h.getWeeklySummary(userID, year, week)
+	if err != nil {
+		log.Printf("Error getting weekly summary: %v", err)
+		http.Error(w, "Failed to get weekly summary", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(summary)
+}
+
+// MonthlySummaryAPI returns monthly summary data as JSON
+func (h *Handler) MonthlySummaryAPI(w http.ResponseWriter, r *http.Request) {
+	session, _ := h.store.Get(r, "session-name")
+	userID, ok := session.Values["user_id"].(int)
+	if !ok {
+		http.Error(w, "User not found in session", http.StatusUnauthorized)
+		return
+	}
+
+	// Get year and month from query parameters
+	yearParam := r.URL.Query().Get("year")
+	monthParam := r.URL.Query().Get("month")
+
+	// If no parameters provided, use current month
+	var year, month int
+	var err error
+
+	if yearParam == "" || monthParam == "" {
+		now := time.Now()
+		year = now.Year()
+		month = int(now.Month())
+	} else {
+		year, err = strconv.Atoi(yearParam)
+		if err != nil || year < 2020 || year > 2030 {
+			http.Error(w, "Invalid year parameter", http.StatusBadRequest)
+			return
+		}
+
+		month, err = strconv.Atoi(monthParam)
+		if err != nil || month < 1 || month > 12 {
+			http.Error(w, "Invalid month parameter", http.StatusBadRequest)
+			return
+		}
+	}
+
+	summary, err := h.getMonthlySummary(userID, year, month)
+	if err != nil {
+		log.Printf("Error getting monthly summary: %v", err)
+		http.Error(w, "Failed to get monthly summary", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(summary)
 }
 
 // Profile renders the user profile page
@@ -1670,4 +1768,128 @@ func (h *Handler) DeleteAccount(w http.ResponseWriter, r *http.Request) {
 	} else {
 		http.Redirect(w, r, "/login?deleted=true", http.StatusSeeOther)
 	}
+}
+
+// GetExerciseProgressChart returns exercise-specific progress chart data as JSON
+func (h *Handler) GetExerciseProgressChart(w http.ResponseWriter, r *http.Request) {
+	session, _ := h.store.Get(r, "session-name")
+	userID, ok := session.Values["user_id"].(int)
+	if !ok {
+		http.Error(w, "User not found in session", http.StatusUnauthorized)
+		return
+	}
+
+	// Get exercise name from URL path or query parameters
+	vars := mux.Vars(r)
+	exerciseName := vars["exercise"]
+	if exerciseName == "" {
+		exerciseName = r.URL.Query().Get("exercise")
+	}
+	if exerciseName == "" {
+		http.Error(w, "Exercise name is required", http.StatusBadRequest)
+		return
+	}
+
+	// Get date range from query parameters
+	startDate := r.URL.Query().Get("start_date")
+	endDate := r.URL.Query().Get("end_date")
+
+	// Default to last 90 days if no date range provided
+	if startDate == "" || endDate == "" {
+		now := time.Now()
+		startDate = now.AddDate(0, 0, -90).Format("2006-01-02")
+		endDate = now.Format("2006-01-02")
+	}
+
+	// Validate date formats
+	if _, err := time.Parse("2006-01-02", startDate); err != nil {
+		http.Error(w, "Invalid start_date format. Use YYYY-MM-DD", http.StatusBadRequest)
+		return
+	}
+	if _, err := time.Parse("2006-01-02", endDate); err != nil {
+		http.Error(w, "Invalid end_date format. Use YYYY-MM-DD", http.StatusBadRequest)
+		return
+	}
+
+	// Get exercise progress chart data
+	chartData, err := h.getExerciseProgressChart(userID, exerciseName, startDate, endDate)
+	if err != nil {
+		log.Printf("Failed to get exercise progress chart for %s: %v", exerciseName, err)
+		http.Error(w, "Failed to load exercise progress data", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(chartData)
+}
+
+// GetExerciseList returns a list of exercises performed by the user
+func (h *Handler) GetExerciseList(w http.ResponseWriter, r *http.Request) {
+	session, _ := h.store.Get(r, "session-name")
+	userID, ok := session.Values["user_id"].(int)
+	if !ok {
+		http.Error(w, "User not found in session", http.StatusUnauthorized)
+		return
+	}
+
+	// Get date range from query parameters for filtering
+	startDate := r.URL.Query().Get("start_date")
+	endDate := r.URL.Query().Get("end_date")
+
+	// Default to last 365 days if no date range provided
+	if startDate == "" || endDate == "" {
+		now := time.Now()
+		startDate = now.AddDate(-1, 0, 0).Format("2006-01-02")
+		endDate = now.Format("2006-01-02")
+	}
+
+	// Query for unique exercise names within the date range
+	// Note: For now, we don't filter by user since the workouts table doesn't have user_id
+	// This should be updated when user-specific workouts are implemented
+	query := `
+		SELECT DISTINCT e.name, e.category, COUNT(*) as frequency,
+		       MAX(w.date) as last_performed
+		FROM exercises e
+		JOIN workouts w ON e.workout_id = w.id
+		WHERE w.date >= ? AND w.date <= ?
+		GROUP BY e.name, e.category
+		ORDER BY frequency DESC, e.name
+	`
+
+	// TODO: Add user_id to workouts table and filter by userID
+	_ = userID // Acknowledge userID for now
+	rows, err := h.db.Query(query, startDate, endDate)
+	if err != nil {
+		log.Printf("Failed to query exercise list: %v", err)
+		http.Error(w, "Failed to load exercise list", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	type ExerciseInfo struct {
+		Name          string    `json:"name"`
+		Category      string    `json:"category"`
+		Frequency     int       `json:"frequency"`
+		LastPerformed time.Time `json:"last_performed"`
+	}
+
+	var exercises []ExerciseInfo
+	for rows.Next() {
+		var ex ExerciseInfo
+		err := rows.Scan(&ex.Name, &ex.Category, &ex.Frequency, &ex.LastPerformed)
+		if err != nil {
+			log.Printf("Error scanning exercise row: %v", err)
+			continue
+		}
+		exercises = append(exercises, ex)
+	}
+
+	if err = rows.Err(); err != nil {
+		log.Printf("Error iterating exercise rows: %v", err)
+		http.Error(w, "Failed to process exercise list", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(exercises)
 }

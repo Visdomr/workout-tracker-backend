@@ -1,70 +1,7 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{.Title}}</title>
+{{template "base.html" .}}
+
+{{define "head"}}
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background-color: #f5f5f5;
-            line-height: 1.6;
-        }
-
-        /* Orange Header */
-        .header {
-            background: linear-gradient(135deg, #ff6b35, #ff8c42);
-            color: white;
-            padding: 1rem 0;
-            box-shadow: 0 4px 12px rgba(255, 107, 53, 0.3);
-        }
-
-        .header-content {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 2rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .header h1 {
-            font-size: 2.5rem;
-            font-weight: 700;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
-        }
-
-        .header-nav {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .header-nav a {
-            color: white;
-            text-decoration: none;
-            padding: 0.5rem 1rem;
-            border-radius: 6px;
-            transition: background-color 0.3s;
-            font-weight: 500;
-        }
-
-        .header-nav a:hover {
-            background-color: rgba(255, 255, 255, 0.2);
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 2rem;
-        }
-
         .page-title {
             font-size: 2rem;
             color: #333;
@@ -130,49 +67,37 @@
             transform: translateY(-2px);
         }
 
-        .empty-state {
+        .exercise-library-empty {
             text-align: center;
             color: #666;
             font-size: 1.1rem;
             margin-top: 3rem;
         }
     </style>
-</head>
-<body>
-    <!-- Orange Header -->
-    <header class="header">
-        <div class="header-content">
-            <h1>Workout Tracker</h1>
-            <nav class="header-nav">
-                <a href="/">Dashboard</a>
-                <a href="/workouts">All Workouts</a>
-                <a href="/logout">Logout</a>
-            </nav>
-        </div>
-    </header>
+{{end}}
 
-    <div class="container">
-        <a href="/" class="back-link">← Back to Dashboard</a>
-        
-        <h2 class="page-title">Exercise Library</h2>
+{{define "content"}}
+<div class="container">
+    <a href="/" class="back-link">← Back to Dashboard</a>
+    
+    <h2 class="page-title">Exercise Library</h2>
 
-        {{if .Exercises}}
-            <div class="exercises-grid">
-                {{range .Exercises}}
-                <div class="exercise-card">
-                    <div class="exercise-name">{{.Name}}</div>
-                    <div class="exercise-category">{{.Category}}</div>
-                    {{if .Description}}
-                        <div class="exercise-description">{{.Description}}</div>
-                    {{end}}
-                </div>
+    {{if .Exercises}}
+        <div class="exercises-grid">
+            {{range .Exercises}}
+            <div class="exercise-card">
+                <div class="exercise-name">{{.Name}}</div>
+                <div class="exercise-category">{{.Category}}</div>
+                {{if .Description}}
+                    <div class="exercise-description">{{.Description}}</div>
                 {{end}}
             </div>
-        {{else}}
-            <div class="empty-state">
-                <p>No exercises found in the library. Check back later!</p>
-            </div>
-        {{end}}
-    </div>
-</body>
-</html>
+            {{end}}
+        </div>
+    {{else}}
+        <div class="exercise-library-empty">
+            <p>No exercises found in the library. Check back later!</p>
+        </div>
+    {{end}}
+</div>
+{{end}}

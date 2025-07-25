@@ -85,8 +85,14 @@ func main() {
 	r.HandleFunc("/api/body-fats", h.AuthMiddleware(h.CreateBodyFat)).Methods("POST")
 	r.HandleFunc("/api/body-measurements", h.AuthMiddleware(h.CreateBodyMeasurement)).Methods("POST")
 	
-	// Analytics API route
+	// Analytics API routes
 	r.HandleFunc("/api/analytics", h.AuthMiddleware(h.AnalyticsAPI)).Methods("GET")
+	r.HandleFunc("/api/weekly-summary", h.AuthMiddleware(h.WeeklySummaryAPI)).Methods("GET")
+	r.HandleFunc("/api/monthly-summary", h.AuthMiddleware(h.MonthlySummaryAPI)).Methods("GET")
+	
+	// Exercise progress chart API routes
+	r.HandleFunc("/api/exercise-progress/{exercise}", h.AuthMiddleware(h.GetExerciseProgressChart)).Methods("GET")
+	r.HandleFunc("/api/exercise-list", h.AuthMiddleware(h.GetExerciseList)).Methods("GET")
 	
 	// Static files
 	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("web/static/"))))

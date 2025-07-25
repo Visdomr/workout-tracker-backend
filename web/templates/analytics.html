@@ -1,11 +1,6 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{.Title}} - Workout Tracker</title>
-    <link href="/static/css/style.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+{{template "base.html" .}}
+
+{{define "head"}}
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/date-fns@2.29.3/index.min.js"></script>
     <style>
@@ -155,24 +150,10 @@
             color: #b0b0b0;
         }
     </style>
-</head>
-<body>
-    <nav class="navbar">
-        <div class="nav-container">
-            <div class="nav-brand">
-                <a href="/">💪 Workout Tracker</a>
-            </div>
-            <div class="nav-links">
-                <a href="/dashboard">Dashboard</a>
-                <a href="/workouts">Workouts</a>
-                <a href="/nutrition">Nutrition</a>
-                <a href="/analytics" class="active">Analytics</a>
-                <a href="/profile">Profile</a>
-            </div>
-        </div>
-    </nav>
-    
-    <main>
+{{end}}
+
+{{define "content"}}
+<div class="container">
 <div class="analytics-container">
     <div class="page-header">
         <h1 class="page-title">Analytics Dashboard</h1>
@@ -490,6 +471,5 @@ function updateSummaryStats(data) {
     document.getElementById('workout-streak').textContent = data.workoutStreak || 0;
 }
 </script>
-    </main>
-</body>
-</html>
+</div>
+{{end}}

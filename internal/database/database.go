@@ -98,6 +98,13 @@ func (db *DB) createTables() error {
 			name TEXT NOT NULL,
 			category TEXT NOT NULL,
 			description TEXT DEFAULT '',
+			video_url TEXT DEFAULT '',
+			instructions TEXT DEFAULT '',
+			tips TEXT DEFAULT '',
+			muscle_groups TEXT DEFAULT '',
+			equipment TEXT DEFAULT '',
+			difficulty TEXT DEFAULT 'beginner',
+			image_url TEXT DEFAULT '',
 			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 		)`,
@@ -197,6 +204,32 @@ func (db *DB) runMigrations() error {
 		for _, migration := range migrations {
 			if _, err := db.Exec(migration); err != nil {
 				return fmt.Errorf("failed to run migration: %s, error: %v", migration, err)
+			}
+		}
+	}
+
+	// Check if video_url column exists in predefined_exercises table
+	var videoColumnExists int
+	err = db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('predefined_exercises') WHERE name='video_url'`).Scan(&videoColumnExists)
+	if err != nil {
+		return fmt.Errorf("failed to check predefined_exercises column existence: %v", err)
+	}
+
+	// If new predefined exercise columns don't exist, add them
+	if videoColumnExists == 0 {
+		exerciseMigrations := []string{
+			`ALTER TABLE predefined_exercises ADD COLUMN video_url TEXT DEFAULT ''`,
+			`ALTER TABLE predefined_exercises ADD COLUMN instructions TEXT DEFAULT ''`,
+			`ALTER TABLE predefined_exercises ADD COLUMN tips TEXT DEFAULT ''`,
+			`ALTER TABLE predefined_exercises ADD COLUMN muscle_groups TEXT DEFAULT ''`,
+			`ALTER TABLE predefined_exercises ADD COLUMN equipment TEXT DEFAULT ''`,
+			`ALTER TABLE predefined_exercises ADD COLUMN difficulty TEXT DEFAULT 'beginner'`,
+			`ALTER TABLE predefined_exercises ADD COLUMN image_url TEXT DEFAULT ''`,
+		}
+
+		for _, migration := range exerciseMigrations {
+			if _, err := db.Exec(migration); err != nil {
+				return fmt.Errorf("failed to run predefined_exercises migration: %s, error: %v", migration, err)
 			}
 		}
 	}

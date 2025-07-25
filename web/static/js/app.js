@@ -10,6 +10,9 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function initializeApp() {
+    // Initialize navigation
+    initializeNavigation();
+    
     // Initialize modals
     initializeModals();
     
@@ -22,7 +25,64 @@ function initializeApp() {
     // Initialize dark mode
     initializeDarkMode();
     
+    // Initialize UI enhancements
+    initializeUIEnhancements();
+    
     console.log('Workout Tracker initialized');
+}
+
+// Navigation enhancements
+function initializeNavigation() {
+    // Add active class to current page nav links
+    const currentPath = window.location.pathname;
+    const navLinks = document.querySelectorAll('.nav-link');
+    
+    navLinks.forEach(link => {
+        // Remove existing active classes
+        link.classList.remove('active');
+        
+        // Add active class to matching link
+        const linkPath = link.getAttribute('href');
+        if (linkPath === currentPath) {
+            link.classList.add('active');
+        }
+        
+        // Special case for dashboard - both / and empty should be active on home
+        if ((currentPath === '/' || currentPath === '') && (linkPath === '/' || linkPath === '')) {
+            link.classList.add('active');
+        }
+        
+        // Special handling for analytics page
+        if (currentPath === '/analytics' && linkPath === '/analytics') {
+            link.classList.add('active');
+        }
+    });
+}
+
+// UI Enhancements
+function initializeUIEnhancements() {
+    // Add smooth scroll behavior
+    document.documentElement.style.scrollBehavior = 'smooth';
+    
+    // Add loading states to buttons on click
+    const buttons = document.querySelectorAll('button[type="submit"], .btn');
+    buttons.forEach(button => {
+        button.addEventListener('click', function(e) {
+            // Don't interfere with form submissions, just add visual feedback
+            if (this.type === 'submit') {
+                setTimeout(() => {
+                    this.style.opacity = '0.7';
+                    this.disabled = true;
+                }, 50);
+            }
+        });
+    });
+    
+    // Add hover effects to interactive elements
+    const interactiveElements = document.querySelectorAll('.category-btn, .action-btn, .nav-link');
+    interactiveElements.forEach(element => {
+        element.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+    });
 }
 
 // Modal functionality
