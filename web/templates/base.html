@@ -31,6 +31,16 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a href="/templates" class="nav-link {{if or (eq .CurrentPath "/templates") (hasPrefix .CurrentPath "/templates/")}}active{{end}}">
+                        <i class="fas fa-clipboard-list"></i> Templates
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/programs" class="nav-link {{if or (eq .CurrentPath "/programs") (hasPrefix .CurrentPath "/programs/")}}active{{end}}">
+                        <i class="fas fa-calendar-alt"></i> Programs
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a href="/analytics" class="nav-link {{if eq .CurrentPath "/analytics"}}active{{end}}">
                         <i class="fas fa-chart-line"></i> Analytics
                     </a>

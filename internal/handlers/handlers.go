@@ -8,7 +8,9 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
+	"context"
 
 	"workout-tracker/internal/database"
 	"workout-tracker/internal/models"
@@ -27,8 +29,16 @@ type Handler struct {
 
 // New creates a new handler instance
 func New(db *database.DB) *Handler {
+	// Create template with custom functions
+	funcMap := template.FuncMap{
+		"hasPrefix": strings.HasPrefix,
+		"contains": strings.Contains,
+		"eq":       func(a, b interface{}) bool { return a == b },
+		"ne":       func(a, b interface{}) bool { return a != b },
+	}
+
 	// Load templates with proper parsing for inheritance
-	templates := template.Must(template.ParseGlob("web/templates/*.html"))
+	templates := template.Must(template.New("").Funcs(funcMap).ParseGlob("web/templates/*.html"))
 	
 	// Get session secret from environment variable
 	sessionSecret := os.Getenv("SESSION_SECRET")
@@ -151,8 +161,15 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 
 // Home renders the home page
 func (h *Handler) Home(w http.ResponseWriter, r *http.Request) {
+	// Get current user ID from session
+	userID, err := h.getCurrentUserID(r)
+	if err != nil {
+		http.Error(w, "User not authenticated", http.StatusUnauthorized)
+		return
+	}
+
 	// Get recent workouts for the dashboard
-	workouts, err := h.getRecentWorkouts(5)
+	workouts, err := h.getRecentWorkoutsByUser(userID, 5)
 	if err != nil {
 		http.Error(w, "Failed to load workouts", http.StatusInternalServerError)
 		return
@@ -170,11 +187,13 @@ func (h *Handler) Home(w http.ResponseWriter, r *http.Request) {
 		Stats        map[string]interface{}
 		Title        string
 		UserSettings *models.UserSettings
+		CurrentPath  string
 	}{
 		Workouts:     workouts,
 		Stats:        stats,
 		Title:        "Workout Tracker",
 		UserSettings: h.getUserSettingsForTemplate(r),
+		CurrentPath:  r.URL.Path,
 	}
 
 	if err := h.templates.ExecuteTemplate(w, "index_dashboard.html", data); err != nil {
@@ -184,9 +203,16 @@ func (h *Handler) Home(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// GetWorkouts returns all workouts
+// GetWorkouts returns all workouts for the current user
 func (h *Handler) GetWorkouts(w http.ResponseWriter, r *http.Request) {
-	workouts, err := h.getAllWorkouts()
+	// Get current user ID from session
+	userID, err := h.getCurrentUserID(r)
+	if err != nil {
+		http.Error(w, "User not authenticated", http.StatusUnauthorized)
+		return
+	}
+
+	workouts, err := h.getAllWorkoutsByUser(userID)
 	if err != nil {
 		http.Error(w, "Failed to load workouts", http.StatusInternalServerError)
 		return
@@ -212,6 +238,13 @@ func (h *Handler) GetWorkouts(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) CreateWorkout(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" {
 		log.Printf("CreateWorkout POST request received")
+		// Get current user ID from session
+		userID, err := h.getCurrentUserID(r)
+		if err != nil {
+			http.Error(w, "User not authenticated", http.StatusUnauthorized)
+			return
+		}
+
 		// Parse form data
 		if err := r.ParseForm(); err != nil {
 			log.Printf("Error parsing form: %v", err)
@@ -240,7 +273,7 @@ func (h *Handler) CreateWorkout(w http.ResponseWriter, r *http.Request) {
 			UpdatedAt: time.Now(),
 		}
 
-		id, err := h.createWorkout(workout)
+		id, err := h.createWorkoutWithUser(workout, userID)
 		if err != nil {
 			http.Error(w, "Failed to create workout", http.StatusInternalServerError)
 			return
@@ -276,8 +309,15 @@ func (h *Handler) GetWorkout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("GetWorkout - Fetching workout with ID: %d", id)
-	workout, err := h.getWorkoutByID(id)
+	// Get current user ID from session
+	userID, err := h.getCurrentUserID(r)
+	if err != nil {
+		http.Error(w, "User not authenticated", http.StatusUnauthorized)
+		return
+	}
+
+	log.Printf("GetWorkout - Fetching workout with ID: %d for user: %d", id, userID)
+	workout, err := h.getWorkoutByIDWithUser(id, userID)
 	if err != nil {
 		log.Printf("GetWorkout - Database error: %v", err)
 		http.Error(w, "Workout not found", http.StatusNotFound)
@@ -312,6 +352,13 @@ func (h *Handler) UpdateWorkout(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(vars["id"])
 	if err != nil {
 		http.Error(w, "Invalid workout ID", http.StatusBadRequest)
+		return
+	}
+
+	// Get current user ID from session
+	userID, err := h.getCurrentUserID(r)
+	if err != nil {
+		http.Error(w, "User not authenticated", http.StatusUnauthorized)
 		return
 	}
 
@@ -375,7 +422,7 @@ func (h *Handler) UpdateWorkout(w http.ResponseWriter, r *http.Request) {
 			UpdatedAt: time.Now(),
 		}
 
-		err = h.updateWorkout(workout)
+		err = h.updateWorkoutWithUser(workout, userID)
 		if err != nil {
 			http.Error(w, "Failed to update workout", http.StatusInternalServerError)
 			return
@@ -436,7 +483,14 @@ func (h *Handler) DeleteWorkout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.deleteWorkout(id)
+	// Get current user ID from session
+	userID, err := h.getCurrentUserID(r)
+	if err != nil {
+		http.Error(w, "User not authenticated", http.StatusUnauthorized)
+		return
+	}
+
+	err = h.deleteWorkoutWithUser(id, userID)
 	if err != nil {
 		http.Error(w, "Failed to delete workout", http.StatusInternalServerError)
 		return
@@ -687,7 +741,12 @@ func (h *Handler) ClearSession(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("Session cleared. <a href='/'>Go to home</a> to test login."))
 }
 
-// AuthMiddleware checks if user is authenticated
+// Context key for user ID
+type contextKey string
+
+const UserIDKey contextKey = "user_id"
+
+// AuthMiddleware checks if user is authenticated and adds user ID to context
 func (h *Handler) AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Debug: print all cookies received
@@ -697,19 +756,38 @@ func (h *Handler) AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 			log.Printf("Error getting session: %v", err)
 		}
 		auth, ok := session.Values["authenticated"]
-		log.Printf("Auth check - URL: %s, Session exists: %v, Auth value: %v, Type: %T, Session Values: %+v", r.URL.Path, ok, auth, auth, session.Values)
-		if !ok || auth != true {
+		userID, userIDOk := session.Values["user_id"].(int)
+		log.Printf("Auth check - URL: %s, Session exists: %v, Auth value: %v, Type: %T, UserID: %v, Session Values: %+v", r.URL.Path, ok, auth, auth, userID, session.Values)
+		if !ok || auth != true || !userIDOk {
 			log.Printf("Redirecting to login from %s", r.URL.Path)
 			http.Redirect(w, r, "/login", http.StatusFound)
 			return
 		}
-		log.Printf("Authentication successful, proceeding to %s", r.URL.Path)
+		// Add user ID to request context
+		ctx := context.WithValue(r.Context(), UserIDKey, userID)
+		r = r.WithContext(ctx)
+		log.Printf("Authentication successful for user %d, proceeding to %s", userID, r.URL.Path)
 		next.ServeHTTP(w, r)
 	})
 }
 
-// Helper function to get current user ID from session
+// Helper function to get user ID from context (preferred for authenticated requests)
+func (h *Handler) getUserIDFromContext(r *http.Request) (int, error) {
+	userID, ok := r.Context().Value(UserIDKey).(int)
+	if !ok {
+		return 0, fmt.Errorf("user not authenticated")
+	}
+	return userID, nil
+}
+
+// Helper function to get current user ID from session (fallback)
 func (h *Handler) getCurrentUserID(r *http.Request) (int, error) {
+	// First try to get from context (set by AuthMiddleware)
+	if userID, err := h.getUserIDFromContext(r); err == nil {
+		return userID, nil
+	}
+	
+	// Fallback to session
 	session, err := h.store.Get(r, "session-name")
 	if err != nil {
 		return 0, err
@@ -1484,6 +1562,227 @@ func (h *Handler) BodyMeasurements(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// TemplatesList displays the templates list page
+func (h *Handler) TemplatesList(w http.ResponseWriter, r *http.Request) {
+	data := struct {
+		Title        string
+		UserSettings *models.UserSettings
+		CurrentPath  string
+	}{
+		Title:        "Workout Templates",
+		UserSettings: h.getUserSettingsForTemplate(r),
+		CurrentPath:  r.URL.Path,
+	}
+
+	if err := h.templates.ExecuteTemplate(w, "templates_list.html", data); err != nil {
+		log.Printf("Template error: %v", err)
+		http.Error(w, "Failed to render template", http.StatusInternalServerError)
+		return
+	}
+}
+
+// TemplateDetails displays a specific template
+func (h *Handler) TemplateDetails(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	templateID, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		http.Error(w, "Invalid template ID", http.StatusBadRequest)
+		return
+	}
+
+	session, _ := h.store.Get(r, "session-name")
+	userID, ok := session.Values["user_id"].(int)
+	if !ok {
+		http.Error(w, "User not found in session", http.StatusUnauthorized)
+		return
+	}
+
+	// Get template with exercises
+	template, err := h.getWorkoutTemplateByID(templateID, userID)
+	if err != nil {
+		http.Error(w, "Template not found", http.StatusNotFound)
+		return
+	}
+
+	data := struct {
+		Template     *models.WorkoutTemplate
+		Title        string
+		UserSettings *models.UserSettings
+		CurrentPath  string
+	}{
+		Template:     &template,
+		Title:        template.Name,
+		UserSettings: h.getUserSettingsForTemplate(r),
+		CurrentPath:  r.URL.Path,
+	}
+
+	if err := h.templates.ExecuteTemplate(w, "template_details.html", data); err != nil {
+		log.Printf("Template error: %v", err)
+		http.Error(w, "Failed to render template", http.StatusInternalServerError)
+		return
+	}
+}
+
+// TemplateEdit displays the template edit page
+func (h *Handler) TemplateEdit(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	templateID, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		http.Error(w, "Invalid template ID", http.StatusBadRequest)
+		return
+	}
+
+	session, _ := h.store.Get(r, "session-name")
+	userID, ok := session.Values["user_id"].(int)
+	if !ok {
+		http.Error(w, "User not found in session", http.StatusUnauthorized)
+		return
+	}
+
+	// Get template with exercises
+	template, err := h.getWorkoutTemplateByID(templateID, userID)
+	if err != nil {
+		http.Error(w, "Template not found", http.StatusNotFound)
+		return
+	}
+
+	data := struct {
+		Template     *models.WorkoutTemplate
+		Title        string
+		UserSettings *models.UserSettings
+		CurrentPath  string
+	}{
+		Template:     &template,
+		Title:        "Edit " + template.Name,
+		UserSettings: h.getUserSettingsForTemplate(r),
+		CurrentPath:  r.URL.Path,
+	}
+
+	if err := h.templates.ExecuteTemplate(w, "template_edit.html", data); err != nil {
+		log.Printf("Template error: %v", err)
+		http.Error(w, "Failed to render template", http.StatusInternalServerError)
+		return
+	}
+}
+
+// ProgramsList displays the programs list page
+func (h *Handler) ProgramsList(w http.ResponseWriter, r *http.Request) {
+	data := struct {
+		Title        string
+		UserSettings *models.UserSettings
+		CurrentPath  string
+	}{
+		Title:        "Workout Programs",
+		UserSettings: h.getUserSettingsForTemplate(r),
+		CurrentPath:  r.URL.Path,
+	}
+
+	if err := h.templates.ExecuteTemplate(w, "programs_list.html", data); err != nil {
+		log.Printf("Template error: %v", err)
+		http.Error(w, "Failed to render template", http.StatusInternalServerError)
+		return
+	}
+}
+
+// ProgramDetails displays a specific program with weekly schedule
+func (h *Handler) ProgramDetails(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	programID, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		http.Error(w, "Invalid program ID", http.StatusBadRequest)
+		return
+	}
+
+	// Authentication check for protected content
+	session, _ := h.store.Get(r, "session-name")
+	_, ok := session.Values["user_id"].(int)
+	if !ok {
+		http.Error(w, "User not found in session", http.StatusUnauthorized)
+		return
+	}
+
+	// Get program with templates
+	program, err := h.getWorkoutProgramByID(programID)
+	if err != nil {
+		http.Error(w, "Program not found", http.StatusNotFound)
+		return
+	}
+
+	data := struct {
+		Program      *models.WorkoutProgram
+		Title        string
+		UserSettings *models.UserSettings
+		CurrentPath  string
+	}{
+		Program:      &program,
+		Title:        program.Name,
+		UserSettings: h.getUserSettingsForTemplate(r),
+		CurrentPath:  r.URL.Path,
+	}
+
+	if err := h.templates.ExecuteTemplate(w, "program_details.html", data); err != nil {
+		log.Printf("Template error: %v", err)
+		http.Error(w, "Failed to render template", http.StatusInternalServerError)
+		return
+	}
+}
+
+// ProgramEdit displays the program edit page
+func (h *Handler) ProgramEdit(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	programID, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		http.Error(w, "Invalid program ID", http.StatusBadRequest)
+		return
+	}
+
+	session, _ := h.store.Get(r, "session-name")
+	userID, ok := session.Values["user_id"].(int)
+	if !ok {
+		http.Error(w, "User not found in session", http.StatusUnauthorized)
+		return
+	}
+
+	// Get program with templates
+	program, err := h.getWorkoutProgramByID(programID)
+	if err != nil {
+		http.Error(w, "Program not found", http.StatusNotFound)
+		return
+	}
+
+	// Get available templates for dropdown
+	availableTemplates, err := h.getWorkoutTemplatesByUserID(userID)
+	if err != nil {
+		log.Printf("Failed to load available templates: %v", err)
+		availableTemplates = []models.WorkoutTemplate{} // Continue with empty list
+	}
+
+	// Convert available templates to JSON for JavaScript
+	availableTemplatesJSON, _ := json.Marshal(availableTemplates)
+
+	data := struct {
+		Program                *models.WorkoutProgram
+		AvailableTemplates     []models.WorkoutTemplate
+		AvailableTemplatesJSON string
+		Title                  string
+		UserSettings           *models.UserSettings
+		CurrentPath            string
+	}{
+		Program:                &program,
+		AvailableTemplates:     availableTemplates,
+		AvailableTemplatesJSON: string(availableTemplatesJSON),
+		Title:                  "Edit " + program.Name,
+		UserSettings:           h.getUserSettingsForTemplate(r),
+		CurrentPath:            r.URL.Path,
+	}
+
+	if err := h.templates.ExecuteTemplate(w, "program_edit.html", data); err != nil {
+		log.Printf("Template error: %v", err)
+		http.Error(w, "Failed to render template", http.StatusInternalServerError)
+		return
+	}
+}
+
 // AccountSettings displays the account settings page
 func (h *Handler) AccountSettings(w http.ResponseWriter, r *http.Request) {
 	session, _ := h.store.Get(r, "session-name")
@@ -1833,8 +2132,9 @@ func (h *Handler) GetExerciseProgressChart(w http.ResponseWriter, r *http.Reques
 
 // GetExerciseList returns a list of exercises performed by the user
 func (h *Handler) GetExerciseList(w http.ResponseWriter, r *http.Request) {
+	// Authentication check for protected content
 	session, _ := h.store.Get(r, "session-name")
-	userID, ok := session.Values["user_id"].(int)
+	_, ok := session.Values["user_id"].(int)
 	if !ok {
 		http.Error(w, "User not found in session", http.StatusUnauthorized)
 		return
@@ -1865,7 +2165,6 @@ func (h *Handler) GetExerciseList(w http.ResponseWriter, r *http.Request) {
 	`
 
 	// TODO: Add user_id to workouts table and filter by userID
-	_ = userID // Acknowledge userID for now
 	rows, err := h.db.Query(query, startDate, endDate)
 	if err != nil {
 		log.Printf("Failed to query exercise list: %v", err)
@@ -1900,4 +2199,746 @@ func (h *Handler) GetExerciseList(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(exercises)
+}
+
+// ========== WORKOUT TEMPLATE HANDLERS ==========
+
+// GetWorkoutTemplates returns all workout templates for the current user
+func (h *Handler) GetWorkoutTemplates(w http.ResponseWriter, r *http.Request) {
+	userID, err := h.getCurrentUserID(r)
+	if err != nil {
+		http.Error(w, "User not found in session", http.StatusUnauthorized)
+		return
+	}
+
+	templates, err := h.getWorkoutTemplatesByUserID(userID)
+	if err != nil {
+		log.Printf("Failed to get workout templates: %v", err)
+		http.Error(w, "Failed to load workout templates", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(templates)
+}
+
+// GetWorkoutTemplate returns a specific workout template by ID
+func (h *Handler) GetWorkoutTemplate(w http.ResponseWriter, r *http.Request) {
+	userID, err := h.getCurrentUserID(r)
+	if err != nil {
+		http.Error(w, "User not found in session", http.StatusUnauthorized)
+		return
+	}
+
+	vars := mux.Vars(r)
+	templateID, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		http.Error(w, "Invalid template ID", http.StatusBadRequest)
+		return
+	}
+
+	template, err := h.getWorkoutTemplateByID(templateID, userID)
+	if err != nil {
+		log.Printf("Failed to get workout template: %v", err)
+		http.Error(w, "Workout template not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(template)
+}
+
+// CreateWorkoutTemplate creates a new workout template
+func (h *Handler) CreateWorkoutTemplate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	userID, err := h.getCurrentUserID(r)
+	if err != nil {
+		http.Error(w, "User not found in session", http.StatusUnauthorized)
+		return
+	}
+
+	var req models.CreateWorkoutTemplateRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	template := models.WorkoutTemplate{
+		UserID:      userID,
+		Name:        req.Name,
+		Description: req.Description,
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+	}
+
+	id, err := h.createWorkoutTemplate(template)
+	if err != nil {
+		log.Printf("Failed to create workout template: %v", err)
+		http.Error(w, "Failed to create workout template", http.StatusInternalServerError)
+		return
+	}
+
+	// Create template exercises
+	for index, exerciseReq := range req.Exercises {
+		exercise := models.TemplateExercise{
+			TemplateID:   id,
+			Name:         exerciseReq.Name,
+			Category:     exerciseReq.Category,
+			OrderIndex:   index,
+			TargetSets:   exerciseReq.TargetSets,
+			TargetReps:   exerciseReq.TargetReps,
+			TargetWeight: exerciseReq.TargetWeight,
+			RestTime:     exerciseReq.RestTime,
+			Notes:        exerciseReq.Notes,
+			CreatedAt:    time.Now(),
+			UpdatedAt:    time.Now(),
+		}
+		_, err := h.createTemplateExercise(exercise)
+		if err != nil {
+			log.Printf("Failed to create template exercise: %v", err)
+			// Continue with other exercises even if one fails
+		}
+	}
+
+	// Return the created template with exercises
+	createdTemplate, err := h.getWorkoutTemplateByID(id, userID)
+	if err != nil {
+		log.Printf("Failed to get created template: %v", err)
+		http.Error(w, "Template created but failed to retrieve", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(createdTemplate)
+}
+
+// UpdateWorkoutTemplate updates an existing workout template
+func (h *Handler) UpdateWorkoutTemplate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "PUT" && (r.Method != "POST" || r.FormValue("_method") != "PUT") {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	userID, err := h.getCurrentUserID(r)
+	if err != nil {
+		http.Error(w, "User not found in session", http.StatusUnauthorized)
+		return
+	}
+
+	vars := mux.Vars(r)
+	templateID, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		http.Error(w, "Invalid template ID", http.StatusBadRequest)
+		return
+	}
+
+	var req models.UpdateWorkoutTemplateRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	// Verify template belongs to user
+	_, err = h.getWorkoutTemplateByID(templateID, userID)
+	if err != nil {
+		http.Error(w, "Template not found", http.StatusNotFound)
+		return
+	}
+
+	template := models.WorkoutTemplate{
+		ID:          templateID,
+		UserID:      userID,
+		Name:        req.Name,
+		Description: req.Description,
+		UpdatedAt:   time.Now(),
+	}
+
+	err = h.updateWorkoutTemplate(template)
+	if err != nil {
+		log.Printf("Failed to update workout template: %v", err)
+		http.Error(w, "Failed to update workout template", http.StatusInternalServerError)
+		return
+	}
+
+	// Update exercises if provided
+	if req.Exercises != nil {
+		// Delete existing exercises
+		err = h.deleteTemplateExercisesByTemplateID(templateID)
+		if err != nil {
+			log.Printf("Failed to delete existing template exercises: %v", err)
+		}
+
+		// Create new exercises
+		for i, exerciseReq := range req.Exercises {
+			exercise := models.TemplateExercise{
+				TemplateID:   templateID,
+				Name:         exerciseReq.Name,
+				Category:     exerciseReq.Category,
+				OrderIndex:   i,
+				TargetSets:   exerciseReq.TargetSets,
+				TargetReps:   exerciseReq.TargetReps,
+				TargetWeight: exerciseReq.TargetWeight,
+				RestTime:     exerciseReq.RestTime,
+				Notes:        exerciseReq.Notes,
+				CreatedAt:    time.Now(),
+				UpdatedAt:    time.Now(),
+			}
+			_, err := h.createTemplateExercise(exercise)
+			if err != nil {
+				log.Printf("Failed to create template exercise: %v", err)
+			}
+		}
+	}
+
+	// Return updated template
+	updatedTemplate, err := h.getWorkoutTemplateByID(templateID, userID)
+	if err != nil {
+		log.Printf("Failed to get updated template: %v", err)
+		http.Error(w, "Template updated but failed to retrieve", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(updatedTemplate)
+}
+
+// DeleteWorkoutTemplate deletes a workout template
+func (h *Handler) DeleteWorkoutTemplate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "DELETE" && (r.Method != "POST" || r.FormValue("_method") != "DELETE") {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	userID, err := h.getCurrentUserID(r)
+	if err != nil {
+		http.Error(w, "User not found in session", http.StatusUnauthorized)
+		return
+	}
+
+	vars := mux.Vars(r)
+	templateID, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		http.Error(w, "Invalid template ID", http.StatusBadRequest)
+		return
+	}
+
+	// Verify template belongs to user
+	_, err = h.getWorkoutTemplateByID(templateID, userID)
+	if err != nil {
+		http.Error(w, "Template not found", http.StatusNotFound)
+		return
+	}
+
+	err = h.deleteWorkoutTemplate(templateID)
+	if err != nil {
+		log.Printf("Failed to delete workout template: %v", err)
+		http.Error(w, "Failed to delete workout template", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// ========== WORKOUT PROGRAM HANDLERS ==========
+
+// GetWorkoutPrograms returns all workout programs
+func (h *Handler) GetWorkoutPrograms(w http.ResponseWriter, r *http.Request) {
+	programs, err := h.getAllWorkoutPrograms()
+	if err != nil {
+		log.Printf("Failed to get workout programs: %v", err)
+		http.Error(w, "Failed to load workout programs", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(programs)
+}
+
+// GetWorkoutProgram returns a specific workout program by ID
+func (h *Handler) GetWorkoutProgram(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	programID, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		http.Error(w, "Invalid program ID", http.StatusBadRequest)
+		return
+	}
+
+	program, err := h.getWorkoutProgramByID(programID)
+	if err != nil {
+		log.Printf("Failed to get workout program: %v", err)
+		http.Error(w, "Workout program not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(program)
+}
+
+// CreateWorkoutProgram creates a new workout program
+func (h *Handler) CreateWorkoutProgram(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	userID, err := h.getCurrentUserID(r)
+	if err != nil {
+		http.Error(w, "User not found in session", http.StatusUnauthorized)
+		return
+	}
+
+	var req models.CreateWorkoutProgramRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	program := models.WorkoutProgram{
+		Name:          req.Name,
+		Description:   req.Description,
+		Difficulty:    req.Difficulty,
+		DurationWeeks: req.DurationWeeks,
+		Goal:          req.Goal,
+		IsPublic:      req.IsPublic,
+		CreatedBy:     userID,
+		CreatedAt:     time.Now(),
+		UpdatedAt:     time.Now(),
+	}
+
+	id, err := h.createWorkoutProgram(program)
+	if err != nil {
+		log.Printf("Failed to create workout program: %v", err)
+		http.Error(w, "Failed to create workout program", http.StatusInternalServerError)
+		return
+	}
+
+	// Create program templates
+	for _, templateReq := range req.Templates {
+		programTemplate := models.ProgramTemplate{
+			ProgramID:  id,
+			TemplateID: templateReq.TemplateID,
+			DayOfWeek:  templateReq.DayOfWeek,
+			WeekNumber: templateReq.WeekNumber,
+			OrderIndex: templateReq.OrderIndex,
+			CreatedAt:  time.Now(),
+		}
+		_, err := h.createProgramTemplate(programTemplate)
+		if err != nil {
+			log.Printf("Failed to create program template: %v", err)
+			// Continue with other templates even if one fails
+		}
+	}
+
+	// Return the created program with templates
+	createdProgram, err := h.getWorkoutProgramByID(id)
+	if err != nil {
+		log.Printf("Failed to get created program: %v", err)
+		http.Error(w, "Program created but failed to retrieve", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(createdProgram)
+}
+
+// UpdateWorkoutProgram updates an existing workout program
+func (h *Handler) UpdateWorkoutProgram(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "PUT" && (r.Method != "POST" || r.FormValue("_method") != "PUT") {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	userID, err := h.getCurrentUserID(r)
+	if err != nil {
+		http.Error(w, "User not found in session", http.StatusUnauthorized)
+		return
+	}
+
+	vars := mux.Vars(r)
+	programID, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		http.Error(w, "Invalid program ID", http.StatusBadRequest)
+		return
+	}
+
+	var req models.UpdateWorkoutProgramRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	// Verify program exists and user has permission to edit
+	existingProgram, err := h.getWorkoutProgramByID(programID)
+	if err != nil {
+		http.Error(w, "Program not found", http.StatusNotFound)
+		return
+	}
+
+	// Check if user created the program or if it's public
+	if existingProgram.CreatedBy != userID && !existingProgram.IsPublic {
+		http.Error(w, "Permission denied", http.StatusForbidden)
+		return
+	}
+
+	program := models.WorkoutProgram{
+		ID:            programID,
+		Name:          req.Name,
+		Description:   req.Description,
+		Difficulty:    req.Difficulty,
+		DurationWeeks: req.DurationWeeks,
+		Goal:          req.Goal,
+		IsPublic:      req.IsPublic,
+		CreatedBy:     existingProgram.CreatedBy,
+		UpdatedAt:     time.Now(),
+	}
+
+	err = h.updateWorkoutProgram(program)
+	if err != nil {
+		log.Printf("Failed to update workout program: %v", err)
+		http.Error(w, "Failed to update workout program", http.StatusInternalServerError)
+		return
+	}
+
+	// Update program templates if provided
+	if req.Templates != nil {
+		// Delete existing program templates
+		err = h.deleteProgramTemplatesByProgramID(programID)
+		if err != nil {
+			log.Printf("Failed to delete existing program templates: %v", err)
+		}
+
+		// Create new program templates
+		for _, templateReq := range req.Templates {
+			programTemplate := models.ProgramTemplate{
+				ProgramID:  programID,
+				TemplateID: templateReq.TemplateID,
+				DayOfWeek:  templateReq.DayOfWeek,
+				WeekNumber: templateReq.WeekNumber,
+				OrderIndex: templateReq.OrderIndex,
+				CreatedAt:  time.Now(),
+			}
+			_, err := h.createProgramTemplate(programTemplate)
+			if err != nil {
+				log.Printf("Failed to create program template: %v", err)
+			}
+		}
+	}
+
+	// Return updated program
+	updatedProgram, err := h.getWorkoutProgramByID(programID)
+	if err != nil {
+		log.Printf("Failed to get updated program: %v", err)
+		http.Error(w, "Program updated but failed to retrieve", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(updatedProgram)
+}
+
+// DeleteWorkoutProgram deletes a workout program
+func (h *Handler) DeleteWorkoutProgram(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "DELETE" && (r.Method != "POST" || r.FormValue("_method") != "DELETE") {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	userID, err := h.getCurrentUserID(r)
+	if err != nil {
+		http.Error(w, "User not found in session", http.StatusUnauthorized)
+		return
+	}
+
+	vars := mux.Vars(r)
+	programID, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		http.Error(w, "Invalid program ID", http.StatusBadRequest)
+		return
+	}
+
+	// Verify program exists and user has permission to delete
+	existingProgram, err := h.getWorkoutProgramByID(programID)
+	if err != nil {
+		http.Error(w, "Program not found", http.StatusNotFound)
+		return
+	}
+
+	// Only the creator can delete a program
+	if existingProgram.CreatedBy != userID {
+		http.Error(w, "Permission denied", http.StatusForbidden)
+		return
+	}
+
+	err = h.deleteWorkoutProgram(programID)
+	if err != nil {
+		log.Printf("Failed to delete workout program: %v", err)
+		http.Error(w, "Failed to delete workout program", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// ShareWorkoutTemplate handles template sharing
+func (h *Handler) ShareWorkoutTemplate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	userID, err := h.getCurrentUserID(r)
+	if err != nil {
+		http.Error(w, "User not found in session", http.StatusUnauthorized)
+		return
+	}
+
+	vars := mux.Vars(r)
+	templateID, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		http.Error(w, "Invalid template ID", http.StatusBadRequest)
+		return
+	}
+
+	var req models.ShareTemplateRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	// Verify template belongs to user
+	_, err = h.getWorkoutTemplateByID(templateID, userID)
+	if err != nil {
+		http.Error(w, "Template not found", http.StatusNotFound)
+		return
+	}
+
+	sharing := models.TemplateSharing{
+		TemplateID:   templateID,
+		OwnerID:      userID,
+		SharedWithID: req.SharedWithID,
+		Permission:   req.Permission,
+		CreatedAt:    time.Now(),
+	}
+
+	_, err = h.createTemplateSharing(sharing)
+	if err != nil {
+		log.Printf("Failed to share template: %v", err)
+		http.Error(w, "Failed to share template", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(map[string]string{"message": "Template shared successfully"})
+}
+
+// GetSharedTemplates returns templates shared with the current user
+func (h *Handler) GetSharedTemplates(w http.ResponseWriter, r *http.Request) {
+	userID, err := h.getCurrentUserID(r)
+	if err != nil {
+		http.Error(w, "User not found in session", http.StatusUnauthorized)
+		return
+	}
+
+	templates, err := h.getSharedTemplates(userID)
+	if err != nil {
+		log.Printf("Failed to get shared templates: %v", err)
+		http.Error(w, "Failed to load shared templates", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(templates)
+}
+
+// CreateWorkoutFromTemplate creates a workout from a template with optional customizations
+func (h *Handler) CreateWorkoutFromTemplate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	userID, err := h.getCurrentUserID(r)
+	if err != nil {
+		http.Error(w, "User not found in session", http.StatusUnauthorized)
+		return
+	}
+
+	vars := mux.Vars(r)
+	templateID, err := strconv.Atoi(vars["template_id"])
+	if err != nil {
+		http.Error(w, "Invalid template ID", http.StatusBadRequest)
+		return
+	}
+
+	var req models.CreateWorkoutFromTemplateRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	// Set template ID from URL parameter
+	req.TemplateID = templateID
+
+	// Get the template (check if user owns it or has access to shared template)
+	template, err := h.getWorkoutTemplateByID(templateID, userID)
+	if err != nil {
+		http.Error(w, "Template not found or access denied", http.StatusNotFound)
+		return
+	}
+
+	// Parse workout date
+	workoutDate, err := time.Parse("2006-01-02", req.Date)
+	if err != nil {
+		http.Error(w, "Invalid date format (YYYY-MM-DD required)", http.StatusBadRequest)
+		return
+	}
+
+	// Create workout name (use custom name or template name)
+	workoutName := req.Name
+	if workoutName == "" {
+		workoutName = template.Name
+	}
+
+	// Create the workout
+	workout := models.Workout{
+		Name:      workoutName,
+		Date:      workoutDate,
+		Notes:     req.Notes,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	workoutID, err := h.createWorkoutWithUser(workout, userID)
+	if err != nil {
+		log.Printf("Failed to create workout from template: %v", err)
+		http.Error(w, "Failed to create workout", http.StatusInternalServerError)
+		return
+	}
+
+	// Create customization map for quick lookup
+	customizationMap := make(map[string]models.ExerciseCustomization)
+	for _, custom := range req.Customizations {
+		customizationMap[custom.ExerciseName] = custom
+	}
+
+	// Create exercises from template
+	for _, templateExercise := range template.Exercises {
+		// Check if this exercise should be skipped
+		if customization, exists := customizationMap[templateExercise.Name]; exists && customization.Skip {
+			continue
+		}
+
+		// Create exercise
+		exercise := models.Exercise{
+			WorkoutID: workoutID,
+			Name:      templateExercise.Name,
+			Category:  templateExercise.Category,
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		}
+
+		exerciseID, err := h.createExerciseForWorkout(exercise)
+		if err != nil {
+			log.Printf("Failed to create exercise from template: %v", err)
+			continue
+		}
+
+		// For now, we'll set default values since Exercise doesn't have target fields
+		// This should be updated when template exercise support is fully implemented
+		targetSets := 3    // default
+		targetReps := 10   // default
+		targetWeight := 0.0 // default
+		restTime := 60     // default 60 seconds
+
+		// Apply customizations if provided
+		if customization, exists := customizationMap[templateExercise.Name]; exists {
+			if customization.TargetSets > 0 {
+				targetSets = customization.TargetSets
+			}
+			if customization.TargetReps > 0 {
+				targetReps = customization.TargetReps
+			}
+			if customization.TargetWeight > 0 {
+				targetWeight = customization.TargetWeight
+			}
+		}
+
+		// Create sets based on target sets
+		for setNum := 1; setNum <= targetSets; setNum++ {
+			set := models.Set{
+				ExerciseID: exerciseID,
+				SetNumber:  setNum,
+				Reps:       targetReps,
+				Weight:     targetWeight,
+				RestTime:   restTime,
+				CreatedAt:  time.Now(),
+				UpdatedAt:  time.Now(),
+			}
+
+			_, err := h.createSet(set)
+			if err != nil {
+				log.Printf("Failed to create set from template: %v", err)
+			}
+		}
+
+		// Add exercise to workout's exercise list
+		exercise.ID = exerciseID
+		workout.Exercises = append(workout.Exercises, exercise)
+	}
+
+	// Record template usage for analytics
+	usage := models.TemplateUsage{
+		TemplateID: templateID,
+		UserID:     userID,
+		WorkoutID:  workoutID,
+		UsedAt:     time.Now(),
+		CreatedAt:  time.Now(),
+	}
+
+	_, err = h.createTemplateUsage(usage)
+	if err != nil {
+		log.Printf("Failed to record template usage: %v", err)
+		// Don't fail the request for usage tracking failure
+	}
+
+	// Get the complete workout with exercises
+	completeWorkout, err := h.getWorkoutByIDWithUser(workoutID, userID)
+	if err != nil {
+		log.Printf("Failed to get complete workout: %v", err)
+		// Return basic response if we can't get the complete workout
+		response := models.WorkoutFromTemplateResponse{
+			Workout:      models.Workout{ID: workoutID, Name: workoutName, Date: workoutDate},
+			TemplateUsed: models.WorkoutTemplate{ID: templateID, Name: template.Name},
+			Message:      "Workout created successfully from template",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	// Return complete response
+	response := models.WorkoutFromTemplateResponse{
+		Workout:      completeWorkout,
+		TemplateUsed: models.WorkoutTemplate{
+			ID:          template.ID,
+			Name:        template.Name,
+			Description: template.Description,
+			UserID:      template.UserID,
+			CreatedAt:   template.CreatedAt,
+			UpdatedAt:   template.UpdatedAt,
+		},
+		Message: "Workout created successfully from template",
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(response)
 }

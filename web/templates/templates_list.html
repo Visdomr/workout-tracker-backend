@@ -1,0 +1,993 @@
+{{define "content"}}
+<div class="page-header">
+    <h1><i class="fas fa-clipboard-list"></i> Workout Templates</h1>
+    <div class="page-actions">
+        <button id="create-template-btn" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Create Template
+        </button>
+    </div>
+</div>
+
+<div class="templates-container">
+    <!-- Template Cards Container -->
+    <div id="templates-grid" class="templates-grid">
+        <!-- Templates will be loaded here via JavaScript -->
+    </div>
+
+    <!-- Empty State -->
+    <div id="empty-state" class="empty-state" style="display: none;">
+        <div class="empty-icon">
+            <i class="fas fa-clipboard-list"></i>
+        </div>
+        <h3>No Templates Yet</h3>
+        <p>Create your first workout template to get started!</p>
+        <button class="btn btn-primary" onclick="showCreateTemplateModal()">
+            <i class="fas fa-plus"></i> Create Your First Template
+        </button>
+    </div>
+
+    <!-- Loading State -->
+    <div id="loading-state" class="loading-state">
+        <div class="spinner"></div>
+        <p>Loading templates...</p>
+    </div>
+</div>
+
+<!-- Create/Edit Template Modal -->
+<div id="template-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="modal-title">Create Template</h2>
+            <button class="modal-close" onclick="hideTemplateModal()">&times;</button>
+        </div>
+        <form id="template-form">
+            <div class="form-group">
+                <label for="template-name">Template Name*</label>
+                <input type="text" id="template-name" name="name" required>
+            </div>
+            <div class="form-group">
+                <label for="template-description">Description</label>
+                <textarea id="template-description" name="description" rows="3" placeholder="Describe this workout template..."></textarea>
+            </div>
+            <div class="form-group">
+                <label for="template-category">Category</label>
+                <select id="template-category" name="category">
+                    <option value="">Select a category</option>
+                    <option value="strength">Strength Training</option>
+                    <option value="cardio">Cardio</option>
+                    <option value="flexibility">Flexibility</option>
+                    <option value="sports">Sports</option>
+                    <option value="rehabilitation">Rehabilitation</option>
+                    <option value="other">Other</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="template-difficulty">Difficulty Level</label>
+                <select id="template-difficulty" name="difficulty_level">
+                    <option value="">Select difficulty</option>
+                    <option value="beginner">Beginner</option>
+                    <option value="intermediate">Intermediate</option>
+                    <option value="advanced">Advanced</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="template-duration">Estimated Duration (minutes)</label>
+                <input type="number" id="template-duration" name="estimated_duration" min="1" max="300">
+            </div>
+            
+            <!-- Exercises Section -->
+            <div class="form-section">
+                <div class="section-header">
+                    <h3>Exercises</h3>
+                    <button type="button" class="btn btn-secondary" onclick="addExerciseToTemplate()">
+                        <i class="fas fa-plus"></i> Add Exercise
+                    </button>
+                </div>
+                <div id="template-exercises" class="exercises-list">
+                    <!-- Exercise items will be added here -->
+                </div>
+            </div>
+
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="hideTemplateModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary">
+                    <span id="submit-text">Create Template</span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Share Template Modal -->
+<div id="share-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Share Template</h2>
+            <button class="modal-close" onclick="hideShareModal()">&times;</button>
+        </div>
+        <form id="share-form">
+            <input type="hidden" id="share-template-id">
+            <div class="form-group">
+                <label for="share-username">Username or Email</label>
+                <input type="text" id="share-username" name="username" required placeholder="Enter username or email">
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="share-can-edit" name="can_edit"> 
+                    Allow editing
+                </label>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="hideShareModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Share Template</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Create Workout from Template Modal -->
+<div id="create-workout-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Create Workout from Template</h2>
+            <button class="modal-close" onclick="hideCreateWorkoutModal()">&times;</button>
+        </div>
+        <form id="create-workout-form">
+            <input type="hidden" id="workout-template-id">
+            <div class="form-group">
+                <label for="workout-date">Workout Date*</label>
+                <input type="date" id="workout-date" name="date" required>
+            </div>
+            <div id="workout-exercises" class="exercises-customization">
+                <!-- Exercise customization options will be loaded here -->
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="hideCreateWorkoutModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Create Workout</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+.templates-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.templates-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.template-card {
+    background: #fff;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.template-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+}
+
+.template-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 15px;
+}
+
+.template-title {
+    font-size: 1.2em;
+    font-weight: bold;
+    color: #2c3e50;
+    margin: 0;
+}
+
+.template-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.action-btn {
+    background: none;
+    border: none;
+    padding: 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    color: #7f8c8d;
+    transition: all 0.2s ease;
+    font-size: 1rem;
+}
+
+.action-btn:hover {
+    background: #f8f9fa;
+    color: #2c3e50;
+}
+
+.action-btn[title="Create Workout"]:hover {
+    color: #27ae60;
+    background: #d5f4e6;
+}
+
+.action-btn[title="Edit"]:hover {
+    color: #3498db;
+    background: #ebf3fd;
+}
+
+.action-btn[title="Share"]:hover {
+    color: #f39c12;
+    background: #fef9e7;
+}
+
+.action-btn[title="Delete"]:hover {
+    color: #e74c3c;
+    background: #fdf2f2;
+}
+
+.template-meta {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 15px;
+    font-size: 0.9em;
+    color: #7f8c8d;
+}
+
+.template-description {
+    color: #7f8c8d;
+    margin-bottom: 15px;
+    line-height: 1.4;
+}
+
+.template-exercises-count {
+    background: #e74c3c;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.8em;
+    font-weight: bold;
+}
+
+.template-stats {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid #ecf0f1;
+}
+
+.template-usage {
+    color: #7f8c8d;
+    font-size: 0.9em;
+}
+
+/* Modal Content Styling */
+.modal-content {
+    max-width: 600px;
+}
+
+.form-section {
+    margin: 1.5rem 0;
+    padding: 0 1.5rem;
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.section-header h3 {
+    color: #2c3e50;
+    margin: 0;
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+
+.exercises-list {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid #ecf0f1;
+    border-radius: 4px;
+    padding: 10px;
+}
+
+.exercise-item {
+    display: grid;
+    grid-template-columns: 2fr 80px 80px 100px 40px;
+    gap: 10px;
+    align-items: end;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 4px;
+    margin-bottom: 10px;
+}
+
+.exercise-item .form-group {
+    margin: 0;
+    padding: 0;
+}
+
+.exercise-item label {
+    font-size: 0.9em;
+    margin-bottom: 3px;
+    color: #2c3e50;
+    font-weight: 500;
+}
+
+.exercise-item input,
+.exercise-item select {
+    font-size: 0.9em;
+    padding: 6px 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.exercise-item input:focus,
+.exercise-item select:focus {
+    outline: none;
+    border-color: #e74c3c;
+}
+
+.remove-exercise {
+    background: #e74c3c;
+    color: white;
+    border: none;
+    padding: 6px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8em;
+    height: fit-content;
+    transition: background-color 0.2s ease;
+}
+
+.remove-exercise:hover {
+    background: #c0392b;
+}
+
+.exercises-customization {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid #ecf0f1;
+    border-radius: 4px;
+    padding: 15px;
+    background: #f8f9fa;
+}
+
+.exercise-customization {
+    display: grid;
+    grid-template-columns: 2fr auto 80px 80px 100px;
+    gap: 10px;
+    align-items: center;
+    padding: 10px;
+    border-bottom: 1px solid #ecf0f1;
+    background: white;
+    border-radius: 4px;
+    margin-bottom: 10px;
+}
+
+.exercise-customization:last-child {
+    margin-bottom: 0;
+}
+
+.exercise-customization .form-group {
+    margin: 0;
+    padding: 0;
+}
+
+.exercise-customization label {
+    font-size: 0.9em;
+    color: #2c3e50;
+    font-weight: 500;
+    display: block;
+    margin-bottom: 3px;
+}
+
+.exercise-customization input[type="checkbox"] {
+    margin-right: 5px;
+}
+
+.exercise-customization input[type="number"] {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 0.9em;
+}
+
+.exercise-customization input[type="number"]:focus {
+    outline: none;
+    border-color: #e74c3c;
+}
+
+.loading-state, .empty-state {
+    text-align: center;
+    padding: 40px;
+    color: #7f8c8d;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #ecf0f1;
+    border-top: 4px solid #e74c3c;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 20px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.empty-icon {
+    font-size: 4em;
+    color: #bdc3c7;
+    margin-bottom: 20px;
+}
+
+.empty-state h3 {
+    color: #2c3e50;
+    margin-bottom: 1rem;
+    font-size: 1.5rem;
+}
+
+.empty-state p {
+    color: #7f8c8d;
+    margin-bottom: 2rem;
+    font-size: 1.1rem;
+}
+
+/* Modal Actions */
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    padding: 1.5rem;
+    border-top: 1px solid #ecf0f1;
+    background: #f8f9fa;
+    border-radius: 0 0 8px 8px;
+}
+
+/* Modal Close Button */
+.modal-close {
+    font-size: 1.5rem;
+    font-weight: bold;
+    cursor: pointer;
+    color: #7f8c8d;
+    transition: color 0.3s ease;
+    background: none;
+    border: none;
+    padding: 0;
+    line-height: 1;
+}
+
+.modal-close:hover {
+    color: #e74c3c;
+}
+
+/* Dark Mode Support */
+body.dark-mode .template-card {
+    background: #2a2a2a;
+    color: #f0f0f0;
+}
+
+body.dark-mode .template-title {
+    color: #f0f0f0;
+}
+
+body.dark-mode .template-meta,
+body.dark-mode .template-description,
+body.dark-mode .template-usage {
+    color: #bdc3c7;
+}
+
+body.dark-mode .action-btn {
+    color: #bdc3c7;
+}
+
+body.dark-mode .action-btn:hover {
+    background: #3a3a3a;
+    color: #f0f0f0;
+}
+
+body.dark-mode .modal-content {
+    background-color: #2a2a2a;
+    color: #f0f0f0;
+}
+
+body.dark-mode .modal-header {
+    border-bottom-color: #3a3a3a;
+}
+
+body.dark-mode .modal-header h2 {
+    color: #f0f0f0;
+}
+
+body.dark-mode .modal-actions {
+    background: #333;
+    border-top-color: #3a3a3a;
+}
+
+body.dark-mode .form-group label {
+    color: #f0f0f0;
+}
+
+body.dark-mode .form-group input,
+body.dark-mode .form-group select,
+body.dark-mode .form-group textarea {
+    background-color: #333;
+    color: #f0f0f0;
+    border-color: #555;
+}
+
+body.dark-mode .form-group input:focus,
+body.dark-mode .form-group select:focus,
+body.dark-mode .form-group textarea:focus {
+    border-color: #e74c3c;
+}
+
+body.dark-mode .exercise-item {
+    background: #333;
+}
+
+body.dark-mode .exercises-customization {
+    background: #333;
+    border-color: #555;
+}
+
+body.dark-mode .exercise-customization {
+    background: #2a2a2a;
+    border-bottom-color: #555;
+}
+
+body.dark-mode .exercises-list {
+    border-color: #555;
+    background: #333;
+}
+
+body.dark-mode .loading-state,
+body.dark-mode .empty-state {
+    background: #2a2a2a;
+    color: #bdc3c7;
+}
+
+body.dark-mode .empty-state h3 {
+    color: #f0f0f0;
+}
+
+body.dark-mode .spinner {
+    border-color: #555;
+    border-top-color: #e74c3c;
+}
+</style>
+
+<script>
+let currentTemplateId = null;
+let exerciseCounter = 0;
+
+// Load templates on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadTemplates();
+    
+    // Set default date to today
+    document.getElementById('workout-date').valueAsDate = new Date();
+});
+
+// Event listeners
+document.getElementById('create-template-btn').addEventListener('click', showCreateTemplateModal);
+document.getElementById('template-form').addEventListener('submit', handleTemplateSubmit);
+document.getElementById('share-form').addEventListener('submit', handleShareSubmit);
+document.getElementById('create-workout-form').addEventListener('submit', handleCreateWorkoutSubmit);
+
+async function loadTemplates() {
+    const loadingState = document.getElementById('loading-state');
+    const emptyState = document.getElementById('empty-state');
+    const templatesGrid = document.getElementById('templates-grid');
+    
+    loadingState.style.display = 'block';
+    emptyState.style.display = 'none';
+    templatesGrid.innerHTML = '';
+    
+    try {
+        const response = await fetch('/api/templates');
+        if (!response.ok) throw new Error('Failed to load templates');
+        
+        const templates = await response.json();
+        loadingState.style.display = 'none';
+        
+        if (templates.length === 0) {
+            emptyState.style.display = 'block';
+        } else {
+            renderTemplates(templates);
+        }
+    } catch (error) {
+        console.error('Error loading templates:', error);
+        loadingState.style.display = 'none';
+        showError('Failed to load templates');
+    }
+}
+
+function renderTemplates(templates) {
+    const templatesGrid = document.getElementById('templates-grid');
+    templatesGrid.innerHTML = templates.map(template => `
+        <div class="template-card">
+            <div class="template-header">
+                <h3 class="template-title">${escapeHtml(template.name)}</h3>
+                <div class="template-actions">
+                    <button class="action-btn" onclick="createWorkoutFromTemplate(${template.id})" title="Create Workout">
+                        <i class="fas fa-play"></i>
+                    </button>
+                    <button class="action-btn" onclick="editTemplate(${template.id})" title="Edit">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="action-btn" onclick="shareTemplate(${template.id})" title="Share">
+                        <i class="fas fa-share"></i>
+                    </button>
+                    <button class="action-btn" onclick="deleteTemplate(${template.id})" title="Delete">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="template-meta">
+                ${template.category ? `<span><i class="fas fa-tag"></i> ${template.category}</span>` : ''}
+                ${template.difficulty_level ? `<span><i class="fas fa-signal"></i> ${template.difficulty_level}</span>` : ''}
+                ${template.estimated_duration ? `<span><i class="fas fa-clock"></i> ${template.estimated_duration}min</span>` : ''}
+            </div>
+            ${template.description ? `<div class="template-description">${escapeHtml(template.description)}</div>` : ''}
+            <div class="template-stats">
+                <span class="template-exercises-count">${template.exercise_count || 0} exercises</span>
+                <span class="template-usage">Used ${template.usage_count || 0} times</span>
+            </div>
+        </div>
+    `).join('');
+}
+
+function showCreateTemplateModal() {
+    currentTemplateId = null;
+    document.getElementById('modal-title').textContent = 'Create Template';
+    document.getElementById('submit-text').textContent = 'Create Template';
+    document.getElementById('template-form').reset();
+    document.getElementById('template-exercises').innerHTML = '';
+    exerciseCounter = 0;
+    document.getElementById('template-modal').style.display = 'block';
+}
+
+function hideTemplateModal() {
+    document.getElementById('template-modal').style.display = 'none';
+}
+
+function addExerciseToTemplate() {
+    exerciseCounter++;
+    const exercisesContainer = document.getElementById('template-exercises');
+    const exerciseHtml = `
+        <div class="exercise-item" data-exercise-id="${exerciseCounter}">
+            <div class="form-group">
+                <label>Exercise Name*</label>
+                <input type="text" name="exercises[${exerciseCounter}][name]" required>
+            </div>
+            <div class="form-group">
+                <label>Sets</label>
+                <input type="number" name="exercises[${exerciseCounter}][sets]" min="1" value="3">
+            </div>
+            <div class="form-group">
+                <label>Reps</label>
+                <input type="number" name="exercises[${exerciseCounter}][reps]" min="1" value="10">
+            </div>
+            <div class="form-group">
+                <label>Weight (lbs)</label>
+                <input type="number" name="exercises[${exerciseCounter}][weight]" min="0" step="0.5">
+            </div>
+            <button type="button" class="remove-exercise" onclick="removeExerciseFromTemplate(${exerciseCounter})">
+                <i class="fas fa-trash"></i>
+            </button>
+        </div>
+    `;
+    exercisesContainer.insertAdjacentHTML('beforeend', exerciseHtml);
+}
+
+function removeExerciseFromTemplate(id) {
+    const exerciseItem = document.querySelector(`[data-exercise-id="${id}"]`);
+    if (exerciseItem) {
+        exerciseItem.remove();
+    }
+}
+
+async function handleTemplateSubmit(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(e.target);
+    const exercises = [];
+    
+    // Collect exercise data
+    const exerciseItems = document.querySelectorAll('.exercise-item');
+    exerciseItems.forEach((item, index) => {
+        const name = item.querySelector('input[name*="[name]"]').value;
+        const sets = parseInt(item.querySelector('input[name*="[sets]"]').value) || 0;
+        const reps = parseInt(item.querySelector('input[name*="[reps]"]').value) || 0;
+        const weight = parseFloat(item.querySelector('input[name*="[weight]"]').value) || 0;
+        
+        if (name) {
+            exercises.push({
+                name,
+                sets,
+                reps,
+                weight,
+                order_in_template: index + 1
+            });
+        }
+    });
+    
+    const templateData = {
+        name: formData.get('name'),
+        description: formData.get('description'),
+        category: formData.get('category'),
+        difficulty_level: formData.get('difficulty_level'),
+        estimated_duration: parseInt(formData.get('estimated_duration')) || null,
+        exercises
+    };
+    
+    try {
+        const url = currentTemplateId ? `/api/templates/${currentTemplateId}` : '/api/templates';
+        const method = currentTemplateId ? 'PUT' : 'POST';
+        
+        const response = await fetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(templateData)
+        });
+        
+        if (!response.ok) throw new Error('Failed to save template');
+        
+        hideTemplateModal();
+        loadTemplates();
+        showSuccess(currentTemplateId ? 'Template updated successfully!' : 'Template created successfully!');
+    } catch (error) {
+        console.error('Error saving template:', error);
+        showError('Failed to save template');
+    }
+}
+
+async function editTemplate(templateId) {
+    try {
+        const response = await fetch(`/api/templates/${templateId}`);
+        if (!response.ok) throw new Error('Failed to load template');
+        
+        const template = await response.json();
+        
+        currentTemplateId = templateId;
+        document.getElementById('modal-title').textContent = 'Edit Template';
+        document.getElementById('submit-text').textContent = 'Update Template';
+        
+        // Populate form
+        document.getElementById('template-name').value = template.name || '';
+        document.getElementById('template-description').value = template.description || '';
+        document.getElementById('template-category').value = template.category || '';
+        document.getElementById('template-difficulty').value = template.difficulty_level || '';
+        document.getElementById('template-duration').value = template.estimated_duration || '';
+        
+        // Load exercises
+        const exercisesContainer = document.getElementById('template-exercises');
+        exercisesContainer.innerHTML = '';
+        exerciseCounter = 0;
+        
+        if (template.exercises) {
+            template.exercises.forEach(exercise => {
+                exerciseCounter++;
+                const exerciseHtml = `
+                    <div class="exercise-item" data-exercise-id="${exerciseCounter}">
+                        <div class="form-group">
+                            <label>Exercise Name*</label>
+                            <input type="text" name="exercises[${exerciseCounter}][name]" value="${escapeHtml(exercise.name)}" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Sets</label>
+                            <input type="number" name="exercises[${exerciseCounter}][sets]" min="1" value="${exercise.sets || 3}">
+                        </div>
+                        <div class="form-group">
+                            <label>Reps</label>
+                            <input type="number" name="exercises[${exerciseCounter}][reps]" min="1" value="${exercise.reps || 10}">
+                        </div>
+                        <div class="form-group">
+                            <label>Weight (lbs)</label>
+                            <input type="number" name="exercises[${exerciseCounter}][weight]" min="0" step="0.5" value="${exercise.weight || ''}">
+                        </div>
+                        <button type="button" class="remove-exercise" onclick="removeExerciseFromTemplate(${exerciseCounter})">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                `;
+                exercisesContainer.insertAdjacentHTML('beforeend', exerciseHtml);
+            });
+        }
+        
+        document.getElementById('template-modal').style.display = 'block';
+    } catch (error) {
+        console.error('Error loading template for editing:', error);
+        showError('Failed to load template for editing');
+    }
+}
+
+async function deleteTemplate(templateId) {
+    if (!confirm('Are you sure you want to delete this template? This action cannot be undone.')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/templates/${templateId}`, {
+            method: 'DELETE'
+        });
+        
+        if (!response.ok) throw new Error('Failed to delete template');
+        
+        loadTemplates();
+        showSuccess('Template deleted successfully!');
+    } catch (error) {
+        console.error('Error deleting template:', error);
+        showError('Failed to delete template');
+    }
+}
+
+function shareTemplate(templateId) {
+    document.getElementById('share-template-id').value = templateId;
+    document.getElementById('share-form').reset();
+    document.getElementById('share-modal').style.display = 'block';
+}
+
+function hideShareModal() {
+    document.getElementById('share-modal').style.display = 'none';
+}
+
+async function handleShareSubmit(e) {
+    e.preventDefault();
+    
+    const templateId = document.getElementById('share-template-id').value;
+    const username = document.getElementById('share-username').value;
+    const canEdit = document.getElementById('share-can-edit').checked;
+    
+    try {
+        const response = await fetch(`/api/templates/${templateId}/share`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, can_edit: canEdit })
+        });
+        
+        if (!response.ok) throw new Error('Failed to share template');
+        
+        hideShareModal();
+        showSuccess('Template shared successfully!');
+    } catch (error) {
+        console.error('Error sharing template:', error);
+        showError('Failed to share template');
+    }
+}
+
+async function createWorkoutFromTemplate(templateId) {
+    try {
+        const response = await fetch(`/api/templates/${templateId}`);
+        if (!response.ok) throw new Error('Failed to load template');
+        
+        const template = await response.json();
+        
+        document.getElementById('workout-template-id').value = templateId;
+        
+        // Load exercise customization options
+        const exercisesContainer = document.getElementById('workout-exercises');
+        exercisesContainer.innerHTML = template.exercises.map((exercise, index) => `
+            <div class="exercise-customization">
+                <div class="form-group">
+                    <label>${escapeHtml(exercise.name)}</label>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" name="skip_exercises" value="${index}"> Skip
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label>Sets</label>
+                    <input type="number" name="exercises[${index}][sets]" value="${exercise.sets}" min="1">
+                </div>
+                <div class="form-group">
+                    <label>Reps</label>
+                    <input type="number" name="exercises[${index}][reps]" value="${exercise.reps}" min="1">
+                </div>
+                <div class="form-group">
+                    <label>Weight</label>
+                    <input type="number" name="exercises[${index}][weight]" value="${exercise.weight || ''}" min="0" step="0.5">
+                </div>
+            </div>
+        `).join('');
+        
+        document.getElementById('create-workout-modal').style.display = 'block';
+    } catch (error) {
+        console.error('Error loading template for workout creation:', error);
+        showError('Failed to load template');
+    }
+}
+
+function hideCreateWorkoutModal() {
+    document.getElementById('create-workout-modal').style.display = 'none';
+}
+
+async function handleCreateWorkoutSubmit(e) {
+    e.preventDefault();
+    
+    const templateId = document.getElementById('workout-template-id').value;
+    const date = document.getElementById('workout-date').value;
+    
+    const formData = new FormData(e.target);
+    const skipExercises = formData.getAll('skip_exercises').map(i => parseInt(i));
+    const exerciseCustomizations = [];
+    
+    const exerciseInputs = document.querySelectorAll('#workout-exercises .exercise-customization');
+    exerciseInputs.forEach((exercise, index) => {
+        if (!skipExercises.includes(index)) {
+            const sets = parseInt(exercise.querySelector(`input[name="exercises[${index}][sets]"]`).value);
+            const reps = parseInt(exercise.querySelector(`input[name="exercises[${index}][reps]"]`).value);
+            const weight = parseFloat(exercise.querySelector(`input[name="exercises[${index}][weight]"]`).value) || 0;
+            
+            exerciseCustomizations.push({
+                exercise_index: index,
+                sets,
+                reps,
+                weight
+            });
+        }
+    });
+    
+    const workoutData = {
+        date,
+        exercise_customizations: exerciseCustomizations,
+        skip_exercises: skipExercises
+    };
+    
+    try {
+        const response = await fetch(`/api/templates/${templateId}/create-workout`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(workoutData)
+        });
+        
+        if (!response.ok) throw new Error('Failed to create workout');
+        
+        const result = await response.json();
+        hideCreateWorkoutModal();
+        showSuccess('Workout created successfully!');
+        
+        // Redirect to the new workout
+        window.location.href = `/workouts/${result.workout.id}`;
+    } catch (error) {
+        console.error('Error creating workout:', error);
+        showError('Failed to create workout');
+    }
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function showSuccess(message) {
+    // You can implement a toast notification system here
+    alert(message);
+}
+
+function showError(message) {
+    // You can implement a toast notification system here
+    alert(message);
+}
+</script>
+{{end}}

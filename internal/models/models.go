@@ -18,6 +18,55 @@ type User struct {
 	UpdatedAt    time.Time `json:"updated_at" db:"updated_at"`
 }
 
+// WorkoutTemplate represents a reusable workout template
+// Users can create templates to specify a blueprint for future workouts.
+type WorkoutTemplate struct {
+	ID          int       `json:"id" db:"id"`
+	UserID      int       `json:"user_id" db:"user_id"`
+	Name        string    `json:"name" db:"name"`
+	Description string    `json:"description" db:"description"`
+	Exercises   []Exercise `json:"exercises,omitempty"`
+	CreatedAt   time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at" db:"updated_at"`
+}
+
+// WorkoutProgram represents a pre-built workout program
+// Programs can be predefined sets of workouts for specific goals.
+type WorkoutProgram struct {
+	ID            int               `json:"id" db:"id"`
+	Name          string            `json:"name" db:"name"`
+	Description   string            `json:"description" db:"description"`
+	Difficulty    string            `json:"difficulty" db:"difficulty"`    // beginner, intermediate, advanced
+	DurationWeeks int               `json:"duration_weeks" db:"duration_weeks"`
+	Goal          string            `json:"goal" db:"goal"`          // strength, muscle_gain, fat_loss, endurance
+	IsPublic      bool              `json:"is_public" db:"is_public"`
+	CreatedBy     int               `json:"created_by" db:"created_by"`
+	Templates     []ProgramTemplate `json:"templates,omitempty"`
+	CreatedAt     time.Time         `json:"created_at" db:"created_at"`
+	UpdatedAt     time.Time         `json:"updated_at" db:"updated_at"`
+}
+
+// CreateTemplateRequest represents the request payload for creating a workout template
+type CreateTemplateRequest struct {
+	Name        string    `json:"name" validate:"required"`
+	Description string    `json:"description"`
+	Exercises   []Exercise `json:"exercises"`
+}
+
+// UpdateTemplateRequest represents the request payload for updating a workout template
+type UpdateTemplateRequest struct {
+	Name        string    `json:"name" validate:"required"`
+	Description string    `json:"description"`
+	Exercises   []Exercise `json:"exercises"`
+}
+
+// CreateProgramRequest represents the request payload for creating a workout program
+type CreateProgramRequest struct {
+	Name        string    `json:"name" validate:"required"`
+	Description string    `json:"description"`
+	Templates   []WorkoutTemplate `json:"templates"`
+}
+
 // LoginRequest represents the login request
 type LoginRequest struct {
 	Username string `json:"username" validate:"required"`
@@ -34,6 +83,7 @@ type RegisterRequest struct {
 // Workout represents a workout session
 type Workout struct {
 	ID          int       `json:"id" db:"id"`
+	UserID      int       `json:"user_id" db:"user_id"`
 	Name        string    `json:"name" db:"name"`
 	Date        time.Time `json:"date" db:"date"`
 	Duration    int       `json:"duration" db:"duration"` // in minutes
@@ -662,4 +712,163 @@ type ExerciseRanking struct {
 	Value        float64 `json:"value"`
 	Change       float64 `json:"change"`
 	Trend        string  `json:"trend"`
+}
+
+// ========== ENHANCED TEMPLATE AND PROGRAM MODELS ==========
+
+// TemplateExercise represents an exercise within a workout template
+type TemplateExercise struct {
+	ID           int       `json:"id" db:"id"`
+	TemplateID   int       `json:"template_id" db:"template_id"`
+	Name         string    `json:"name" db:"name"`
+	Category     string    `json:"category" db:"category"`
+	OrderIndex   int       `json:"order_index" db:"order_index"`
+	TargetSets   int       `json:"target_sets" db:"target_sets"`
+	TargetReps   int       `json:"target_reps" db:"target_reps"`
+	TargetWeight float64   `json:"target_weight" db:"target_weight"`
+	RestTime     int       `json:"rest_time" db:"rest_time"` // in seconds
+	Notes        string    `json:"notes" db:"notes"`
+	CreatedAt    time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at" db:"updated_at"`
+}
+
+// ProgramTemplate represents the relationship between programs and templates
+type ProgramTemplate struct {
+	ID              int              `json:"id" db:"id"`
+	ProgramID       int              `json:"program_id" db:"program_id"`
+	TemplateID      int              `json:"template_id" db:"template_id"`
+	DayOfWeek       int              `json:"day_of_week" db:"day_of_week"` // 0-6 (Sunday-Saturday)
+	WeekNumber      int              `json:"week_number" db:"week_number"`
+	OrderIndex      int              `json:"order_index" db:"order_index"`
+	WorkoutTemplate *WorkoutTemplate `json:"workout_template,omitempty"`
+	CreatedAt       time.Time        `json:"created_at" db:"created_at"`
+}
+
+// Enhanced WorkoutTemplate with TemplateExercise
+type WorkoutTemplateWithExercises struct {
+	ID          int                 `json:"id"`
+	UserID      int                 `json:"user_id"`
+	Name        string              `json:"name"`
+	Description string              `json:"description"`
+	Exercises   []TemplateExercise  `json:"exercises"`
+	CreatedAt   time.Time           `json:"created_at"`
+	UpdatedAt   time.Time           `json:"updated_at"`
+}
+
+// Enhanced WorkoutProgram with comprehensive data
+type WorkoutProgramWithDetails struct {
+	ID            int               `json:"id"`
+	Name          string            `json:"name"`
+	Description   string            `json:"description"`
+	Difficulty    string            `json:"difficulty"`    // beginner, intermediate, advanced
+	DurationWeeks int               `json:"duration_weeks"`
+	Goal          string            `json:"goal"`          // strength, muscle_gain, fat_loss, endurance
+	IsPublic      bool              `json:"is_public"`
+	CreatedBy     int               `json:"created_by"`
+	Templates     []ProgramTemplate `json:"templates"`
+	CreatedAt     time.Time         `json:"created_at"`
+	UpdatedAt     time.Time         `json:"updated_at"`
+}
+
+// Template sharing between users
+type TemplateSharing struct {
+	ID           int       `json:"id" db:"id"`
+	TemplateID   int       `json:"template_id" db:"template_id"`
+	OwnerID      int       `json:"owner_id" db:"owner_id"`
+	SharedWithID int       `json:"shared_with_id" db:"shared_with_id"`
+	Permission   string    `json:"permission" db:"permission"` // "view" or "edit"
+	CreatedAt    time.Time `json:"created_at" db:"created_at"`
+}
+
+// Request models for template and program management
+type CreateWorkoutTemplateRequest struct {
+	Name        string                         `json:"name" validate:"required"`
+	Description string                         `json:"description"`
+	Exercises   []CreateTemplateExerciseRequest `json:"exercises"`
+}
+
+type CreateTemplateExerciseRequest struct {
+	Name         string  `json:"name" validate:"required"`
+	Category     string  `json:"category" validate:"required"`
+	TargetSets   int     `json:"target_sets"`
+	TargetReps   int     `json:"target_reps"`
+	TargetWeight float64 `json:"target_weight"`
+	RestTime     int     `json:"rest_time"`
+	Notes        string  `json:"notes"`
+}
+
+type UpdateWorkoutTemplateRequest struct {
+	Name        string                         `json:"name" validate:"required"`
+	Description string                         `json:"description"`
+	Exercises   []CreateTemplateExerciseRequest `json:"exercises"`
+}
+
+type CreateWorkoutProgramRequest struct {
+	Name          string                         `json:"name" validate:"required"`
+	Description   string                         `json:"description"`
+	Difficulty    string                         `json:"difficulty"`
+	DurationWeeks int                            `json:"duration_weeks"`
+	Goal          string                         `json:"goal"`
+	IsPublic      bool                           `json:"is_public"`
+	Templates     []CreateProgramTemplateRequest `json:"templates"`
+}
+
+type CreateProgramTemplateRequest struct {
+	TemplateID int `json:"template_id" validate:"required"`
+	DayOfWeek  int `json:"day_of_week"`
+	WeekNumber int `json:"week_number"`
+	OrderIndex int `json:"order_index"`
+}
+
+type UpdateWorkoutProgramRequest struct {
+	Name          string                         `json:"name" validate:"required"`
+	Description   string                         `json:"description"`
+	Difficulty    string                         `json:"difficulty"`
+	DurationWeeks int                            `json:"duration_weeks"`
+	Goal          string                         `json:"goal"`
+	IsPublic      bool                           `json:"is_public"`
+	Templates     []CreateProgramTemplateRequest `json:"templates"`
+}
+
+// Template sharing request
+type ShareTemplateRequest struct {
+	SharedWithID int    `json:"shared_with_id"`
+	Permission   string `json:"permission"` // "view" or "edit"
+}
+
+// ========== TEMPLATE-BASED WORKOUT CREATION MODELS ==========
+
+// Create workout from template request
+type CreateWorkoutFromTemplateRequest struct {
+	TemplateID     int                      `json:"template_id"`
+	Name           string                   `json:"name"`           // Optional: override template name
+	Date           string                   `json:"date"`           // Workout date (YYYY-MM-DD)
+	Notes          string                   `json:"notes"`          // Optional workout notes
+	Customizations []ExerciseCustomization `json:"customizations"` // Optional exercise customizations
+}
+
+// Exercise customization for template-based workouts
+type ExerciseCustomization struct {
+	ExerciseName string  `json:"exercise_name"`
+	TargetSets   int     `json:"target_sets"`
+	TargetReps   int     `json:"target_reps"`
+	TargetWeight float64 `json:"target_weight"`
+	Skip         bool    `json:"skip"` // Skip this exercise
+}
+
+// Template usage tracking
+type TemplateUsage struct {
+	ID         int       `json:"id"`
+	TemplateID int       `json:"template_id"`
+	UserID     int       `json:"user_id"`
+	WorkoutID  int       `json:"workout_id"`
+	UsedAt     time.Time `json:"used_at"`
+	CreatedAt  time.Time `json:"created_at"`
+}
+
+// Template-based workout creation response
+type WorkoutFromTemplateResponse struct {
+	Workout      Workout       `json:"workout"`
+	TemplateUsed WorkoutTemplate `json:"template_used"`
+	Message      string        `json:"message"`
 }

@@ -57,6 +57,16 @@ func main() {
 	r.HandleFunc("/body-fat", h.AuthMiddleware(h.BodyFatPage)).Methods("GET")
 	r.HandleFunc("/body-measurements", h.AuthMiddleware(h.BodyMeasurements)).Methods("GET")
 	
+	// Template frontend routes
+	r.HandleFunc("/templates", h.AuthMiddleware(h.TemplatesList)).Methods("GET")
+	r.HandleFunc("/templates/{id}", h.AuthMiddleware(h.TemplateDetails)).Methods("GET")
+	r.HandleFunc("/templates/{id}/edit", h.AuthMiddleware(h.TemplateEdit)).Methods("GET")
+	
+	// Program frontend routes
+	r.HandleFunc("/programs", h.AuthMiddleware(h.ProgramsList)).Methods("GET")
+	r.HandleFunc("/programs/{id}", h.AuthMiddleware(h.ProgramDetails)).Methods("GET")
+	r.HandleFunc("/programs/{id}/edit", h.AuthMiddleware(h.ProgramEdit)).Methods("GET")
+	
 	// API routes
 	r.HandleFunc("/api/workouts", h.AuthMiddleware(h.APIGetWorkouts)).Methods("GET")
 	r.HandleFunc("/api/workouts", h.AuthMiddleware(h.APICreateWorkout)).Methods("POST")
@@ -93,6 +103,23 @@ func main() {
 	// Exercise progress chart API routes
 	r.HandleFunc("/api/exercise-progress/{exercise}", h.AuthMiddleware(h.GetExerciseProgressChart)).Methods("GET")
 	r.HandleFunc("/api/exercise-list", h.AuthMiddleware(h.GetExerciseList)).Methods("GET")
+	
+	// Workout Template API routes
+	r.HandleFunc("/api/templates", h.AuthMiddleware(h.GetWorkoutTemplates)).Methods("GET")
+	r.HandleFunc("/api/templates", h.AuthMiddleware(h.CreateWorkoutTemplate)).Methods("POST")
+	r.HandleFunc("/api/templates/{id}", h.AuthMiddleware(h.GetWorkoutTemplate)).Methods("GET")
+	r.HandleFunc("/api/templates/{id}", h.AuthMiddleware(h.UpdateWorkoutTemplate)).Methods("PUT")
+	r.HandleFunc("/api/templates/{id}", h.AuthMiddleware(h.DeleteWorkoutTemplate)).Methods("DELETE")
+	r.HandleFunc("/api/templates/{id}/share", h.AuthMiddleware(h.ShareWorkoutTemplate)).Methods("POST")
+	r.HandleFunc("/api/templates/{template_id}/create-workout", h.AuthMiddleware(h.CreateWorkoutFromTemplate)).Methods("POST")
+	r.HandleFunc("/api/shared-templates", h.AuthMiddleware(h.GetSharedTemplates)).Methods("GET")
+	
+	// Workout Program API routes
+	r.HandleFunc("/api/programs", h.AuthMiddleware(h.GetWorkoutPrograms)).Methods("GET")
+	r.HandleFunc("/api/programs", h.AuthMiddleware(h.CreateWorkoutProgram)).Methods("POST")
+	r.HandleFunc("/api/programs/{id}", h.AuthMiddleware(h.GetWorkoutProgram)).Methods("GET")
+	r.HandleFunc("/api/programs/{id}", h.AuthMiddleware(h.UpdateWorkoutProgram)).Methods("PUT")
+	r.HandleFunc("/api/programs/{id}", h.AuthMiddleware(h.DeleteWorkoutProgram)).Methods("DELETE")
 	
 	// Static files
 	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("web/static/"))))

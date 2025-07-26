@@ -3,6 +3,7 @@ package database
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"os"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -172,6 +173,70 @@ func (db *DB) createTables() error {
 			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 		)`,
+		`CREATE TABLE IF NOT EXISTS workout_templates (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL,
+			name TEXT NOT NULL,
+			description TEXT DEFAULT '',
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+		)`,
+		`CREATE TABLE IF NOT EXISTS template_exercises (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			template_id INTEGER NOT NULL,
+			name TEXT NOT NULL,
+			category TEXT NOT NULL,
+			order_index INTEGER DEFAULT 0,
+			target_sets INTEGER DEFAULT 3,
+			target_reps INTEGER DEFAULT 10,
+			target_weight REAL DEFAULT 0,
+			rest_time INTEGER DEFAULT 60,
+			notes TEXT DEFAULT '',
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (template_id) REFERENCES workout_templates(id) ON DELETE CASCADE
+		)`,
+		`CREATE TABLE IF NOT EXISTS workout_programs (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			name TEXT NOT NULL,
+			description TEXT DEFAULT '',
+			difficulty TEXT DEFAULT 'beginner',
+			duration_weeks INTEGER DEFAULT 8,
+			goal TEXT DEFAULT 'general',
+			is_public BOOLEAN DEFAULT 1,
+			created_by INTEGER DEFAULT 0,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`CREATE TABLE IF NOT EXISTS program_templates (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			program_id INTEGER NOT NULL,
+			template_id INTEGER NOT NULL,
+			day_of_week INTEGER NOT NULL,
+			week_number INTEGER DEFAULT 1,
+			order_index INTEGER DEFAULT 0,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (program_id) REFERENCES workout_programs(id) ON DELETE CASCADE,
+			FOREIGN KEY (template_id) REFERENCES workout_templates(id) ON DELETE CASCADE
+		)`,
+		`CREATE TABLE IF NOT EXISTS template_sharing (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			template_id INTEGER NOT NULL,
+			owner_id INTEGER NOT NULL,
+			shared_with_id INTEGER NOT NULL,
+			permission TEXT DEFAULT 'view',
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (template_id) REFERENCES workout_templates(id) ON DELETE CASCADE,
+			FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE,
+			FOREIGN KEY (shared_with_id) REFERENCES users(id) ON DELETE CASCADE,
+			UNIQUE(template_id, shared_with_id)
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_workout_templates_user_id ON workout_templates(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_template_exercises_template_id ON template_exercises(template_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_program_templates_program_id ON program_templates(program_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_template_sharing_owner_id ON template_sharing(owner_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_template_sharing_shared_with_id ON template_sharing(shared_with_id)`,
 	}
 
 	for _, query := range queries {
@@ -232,6 +297,29 @@ func (db *DB) runMigrations() error {
 				return fmt.Errorf("failed to run predefined_exercises migration: %s, error: %v", migration, err)
 			}
 		}
+	}
+
+	// Check if user_id column exists in workouts table
+	var userIDColumnExists int
+	err = db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('workouts') WHERE name='user_id'`).Scan(&userIDColumnExists)
+	if err != nil {
+		return fmt.Errorf("failed to check workouts user_id column existence: %v", err)
+	}
+
+	// If user_id column doesn't exist in workouts table, add it
+	if userIDColumnExists == 0 {
+		workoutMigrations := []string{
+			`ALTER TABLE workouts ADD COLUMN user_id INTEGER DEFAULT 1`,
+			`CREATE INDEX IF NOT EXISTS idx_workouts_user_id ON workouts(user_id)`,
+		}
+
+		for _, migration := range workoutMigrations {
+			if _, err := db.Exec(migration); err != nil {
+				return fmt.Errorf("failed to run workouts migration: %s, error: %v", migration, err)
+			}
+		}
+		
+		log.Println("Added user_id column to workouts table with default value 1 for existing workouts")
 	}
 
 	return nil

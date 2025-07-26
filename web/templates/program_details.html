@@ -1,0 +1,858 @@
+{{define "content"}}
+<div class="program-details">
+    <div class="page-header">
+        <div class="page-title">
+            <h1>
+                <i class="fas fa-calendar-alt"></i> {{.Program.Name}}
+            </h1>
+            <div class="program-meta">
+                {{if .Program.DurationWeeks}}
+                    <span class="program-duration"><i class="fas fa-calendar"></i> {{.Program.DurationWeeks}} weeks</span>
+                {{end}}
+                <span class="templates-count"><i class="fas fa-clipboard-list"></i> {{len .Program.Templates}} templates</span>
+                <span class="usage-count"><i class="fas fa-chart-line"></i> Used {{.Program.UsageCount}} times</span>
+            </div>
+        </div>
+        <div class="page-actions">
+            <button class="btn btn-primary" onclick="startProgram({{.Program.ID}})">
+                <i class="fas fa-play"></i> Start Program
+            </button>
+            <button class="action-btn" onclick="editProgram({{.Program.ID}})" title="Edit Program">
+                <i class="fas fa-edit"></i>
+            </button>
+            <button class="action-btn" onclick="shareProgram({{.Program.ID}})" title="Share Program">
+                <i class="fas fa-share"></i>
+            </button>
+        </div>
+    </div>
+
+    {{if .Program.Description}}
+    <div class="program-description-card">
+        <h3><i class="fas fa-info-circle"></i> Description</h3>
+        <p>{{.Program.Description}}</p>
+    </div>
+    {{end}}
+
+    <div class="program-templates-section">
+        <h2><i class="fas fa-clipboard-list"></i> Program Templates</h2>
+        
+        {{if .Program.DurationWeeks}}
+        <div class="program-schedule">
+            <div class="schedule-header">
+                <h3><i class="fas fa-calendar-week"></i> Weekly Schedule</h3>
+                <div class="schedule-controls">
+                    <button class="btn btn-secondary btn-small" onclick="toggleScheduleView()" id="schedule-toggle">
+                        <i class="fas fa-table"></i> Table View
+                    </button>
+                </div>
+            </div>
+            
+            <div id="calendar-view" class="calendar-view">
+                {{range $week := .WeeklySchedule}}
+                <div class="week-container">
+                    <h4 class="week-header">Week {{$week.Number}}</h4>
+                    <div class="week-grid">
+                        {{range $day := $week.Days}}
+                        <div class="day-card {{if not $day.Templates}}empty-day{{end}}">
+                            <div class="day-header">
+                                <span class="day-name">{{$day.Name}}</span>
+                            </div>
+                            <div class="day-templates">
+                                {{range $template := $day.Templates}}
+                                <div class="template-pill" onclick="viewTemplate({{$template.ID}})">
+                                    <i class="fas fa-dumbbell"></i>
+                                    {{$template.Name}}
+                                </div>
+                                {{end}}
+                                {{if not $day.Templates}}
+                                <span class="rest-day">Rest Day</span>
+                                {{end}}
+                            </div>
+                        </div>
+                        {{end}}
+                    </div>
+                </div>
+                {{end}}
+            </div>
+            
+            <div id="table-view" class="table-view" style="display: none;">
+                <div class="schedule-table-container">
+                    <table class="schedule-table">
+                        <thead>
+                            <tr>
+                                <th>Week</th>
+                                <th>Monday</th>
+                                <th>Tuesday</th>
+                                <th>Wednesday</th>
+                                <th>Thursday</th>
+                                <th>Friday</th>
+                                <th>Saturday</th>
+                                <th>Sunday</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {{range $week := .WeeklySchedule}}
+                            <tr>
+                                <td class="week-number">Week {{$week.Number}}</td>
+                                {{range $day := $week.Days}}
+                                <td class="schedule-cell">
+                                    {{range $template := $day.Templates}}
+                                    <div class="table-template" onclick="viewTemplate({{$template.ID}})">
+                                        {{$template.Name}}
+                                    </div>
+                                    {{end}}
+                                    {{if not $day.Templates}}
+                                    <span class="table-rest">Rest</span>
+                                    {{end}}
+                                </td>
+                                {{end}}
+                            </tr>
+                            {{end}}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {{end}}
+
+        <div class="templates-list-section">
+            <h3><i class="fas fa-list"></i> All Templates</h3>
+            <div class="templates-grid">
+                {{range .Program.Templates}}
+                <div class="template-card" onclick="viewTemplate({{.Template.ID}})">
+                    <div class="template-header">
+                        <h4 class="template-title">{{.Template.Name}}</h4>
+                        <div class="template-actions">
+                            <button class="action-btn" onclick="event.stopPropagation(); createWorkoutFromTemplate({{.Template.ID}})" title="Create Workout">
+                                <i class="fas fa-play"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="template-info">
+                        {{if .Template.Category}}
+                            <span class="template-category">{{.Template.Category}}</span>
+                        {{end}}
+                        {{if .Template.DifficultyLevel}}
+                            <span class="template-difficulty">{{.Template.DifficultyLevel}}</span>
+                        {{end}}
+                        {{if .Template.EstimatedDuration}}
+                            <span class="template-duration">{{.Template.EstimatedDuration}}min</span>
+                        {{end}}
+                    </div>
+                    {{if .Template.Description}}
+                    <div class="template-description">{{.Template.Description}}</div>
+                    {{end}}
+                    <div class="template-schedule-info">
+                        {{if .DayOfWeek}}
+                            <span class="schedule-day"><i class="fas fa-calendar-day"></i> {{.DayOfWeekName}}</span>
+                        {{end}}
+                        {{if .WeekNumber}}
+                            <span class="schedule-week"><i class="fas fa-calendar-week"></i> Week {{.WeekNumber}}</span>
+                        {{end}}
+                    </div>
+                    <div class="template-stats">
+                        <span class="exercises-count">{{len .Template.Exercises}} exercises</span>
+                    </div>
+                </div>
+                {{end}}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Start Program Modal -->
+<div id="start-program-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Start Program</h2>
+            <button class="modal-close" onclick="hideStartProgramModal()">&times;</button>
+        </div>
+        <form id="start-program-form">
+            <input type="hidden" id="start-program-id" value="{{.Program.ID}}">
+            <div class="form-group">
+                <label for="start-date">Start Date*</label>
+                <input type="date" id="start-date" name="start_date" required>
+            </div>
+            <div class="form-group">
+                <label for="program-notes">Notes (optional)</label>
+                <textarea id="program-notes" name="notes" rows="3" placeholder="Any notes about this program instance..."></textarea>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="hideStartProgramModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Start Program</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Share Program Modal -->
+<div id="share-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Share Program</h2>
+            <button class="modal-close" onclick="hideShareModal()">&times;</button>
+        </div>
+        <form id="share-form">
+            <input type="hidden" id="share-program-id" value="{{.Program.ID}}">
+            <div class="form-group">
+                <label for="share-username">Username or Email</label>
+                <input type="text" id="share-username" name="username" required placeholder="Enter username or email">
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="share-can-edit" name="can_edit"> 
+                    Allow editing
+                </label>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="hideShareModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Share Program</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+.program-details {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.page-title {
+    flex: 1;
+}
+
+.page-title h1 {
+    margin: 0 0 10px 0;
+    color: #2c3e50;
+    font-size: 2rem;
+}
+
+.program-meta {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.program-meta span {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: #7f8c8d;
+    font-size: 0.9rem;
+}
+
+.program-duration {
+    background: #27ae60;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: bold;
+}
+
+.templates-count {
+    background: #3498db;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: bold;
+}
+
+.usage-count {
+    background: #95a5a6;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: bold;
+}
+
+.page-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.action-btn {
+    background: none;
+    border: none;
+    padding: 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    color: #7f8c8d;
+    transition: all 0.2s ease;
+    font-size: 1.1rem;
+}
+
+.action-btn:hover {
+    background: #f8f9fa;
+    color: #2c3e50;
+}
+
+.program-description-card {
+    background: #fff;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 30px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.program-description-card h3 {
+    color: #2c3e50;
+    margin: 0 0 15px 0;
+    font-size: 1.2rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.program-description-card p {
+    color: #7f8c8d;
+    line-height: 1.6;
+    margin: 0;
+}
+
+.program-templates-section {
+    background: #fff;
+    border-radius: 8px;
+    padding: 30px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.program-templates-section h2 {
+    color: #2c3e50;
+    margin: 0 0 25px 0;
+    font-size: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.schedule-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.schedule-header h3 {
+    color: #2c3e50;
+    margin: 0;
+    font-size: 1.3rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.week-container {
+    margin-bottom: 30px;
+}
+
+.week-header {
+    color: #2c3e50;
+    margin: 0 0 15px 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #ecf0f1;
+}
+
+.week-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 10px;
+}
+
+.day-card {
+    background: #f8f9fa;
+    border-radius: 6px;
+    padding: 12px;
+    min-height: 80px;
+    border: 1px solid #ecf0f1;
+    transition: all 0.2s ease;
+}
+
+.day-card:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.day-card.empty-day {
+    background: #fafafa;
+    border-style: dashed;
+}
+
+.day-header {
+    margin-bottom: 8px;
+}
+
+.day-name {
+    font-weight: 600;
+    color: #2c3e50;
+    font-size: 0.9rem;
+}
+
+.template-pill {
+    background: #3498db;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 4px;
+}
+
+.template-pill:hover {
+    background: #2980b9;
+}
+
+.rest-day {
+    color: #95a5a6;
+    font-style: italic;
+    font-size: 0.8rem;
+}
+
+.schedule-table-container {
+    overflow-x: auto;
+}
+
+.schedule-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.schedule-table th,
+.schedule-table td {
+    padding: 12px 8px;
+    text-align: left;
+    border: 1px solid #ecf0f1;
+    vertical-align: top;
+}
+
+.schedule-table th {
+    background: #f8f9fa;
+    color: #2c3e50;
+    font-weight: 600;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+}
+
+.week-number {
+    background: #f8f9fa;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.schedule-cell {
+    min-width: 120px;
+}
+
+.table-template {
+    background: #3498db;
+    color: white;
+    padding: 3px 6px;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    font-weight: bold;
+    cursor: pointer;
+    margin-bottom: 3px;
+    transition: background-color 0.2s ease;
+}
+
+.table-template:hover {
+    background: #2980b9;
+}
+
+.table-rest {
+    color: #95a5a6;
+    font-style: italic;
+    font-size: 0.8rem;
+}
+
+.templates-list-section {
+    margin-top: 40px;
+    padding-top: 30px;
+    border-top: 2px solid #ecf0f1;
+}
+
+.templates-list-section h3 {
+    color: #2c3e50;
+    margin: 0 0 20px 0;
+    font-size: 1.3rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.templates-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 20px;
+}
+
+.template-card {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 20px;
+    border: 1px solid #ecf0f1;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.template-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    background: #fff;
+}
+
+.template-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 10px;
+}
+
+.template-title {
+    color: #2c3e50;
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.template-actions {
+    display: flex;
+    gap: 5px;
+}
+
+.template-actions .action-btn {
+    padding: 6px;
+    font-size: 0.9rem;
+}
+
+.template-info {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+}
+
+.template-category,
+.template-difficulty,
+.template-duration {
+    font-size: 0.75rem;
+    padding: 2px 6px;
+    border-radius: 8px;
+    font-weight: bold;
+}
+
+.template-category {
+    background: #e67e22;
+    color: white;
+}
+
+.template-difficulty {
+    background: #9b59b6;
+    color: white;
+}
+
+.template-duration {
+    background: #1abc9c;
+    color: white;
+}
+
+.template-description {
+    color: #7f8c8d;
+    font-size: 0.9rem;
+    line-height: 1.4;
+    margin-bottom: 10px;
+}
+
+.template-schedule-info {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+    font-size: 0.8rem;
+}
+
+.schedule-day,
+.schedule-week {
+    color: #7f8c8d;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+}
+
+.template-stats {
+    color: #7f8c8d;
+    font-size: 0.8rem;
+}
+
+.exercises-count {
+    background: #95a5a6;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 8px;
+    font-weight: bold;
+}
+
+/* Modal Styles */
+.modal-content {
+    max-width: 500px;
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    padding: 1.5rem;
+    border-top: 1px solid #ecf0f1;
+    background: #f8f9fa;
+    border-radius: 0 0 8px 8px;
+}
+
+.modal-close {
+    font-size: 1.5rem;
+    font-weight: bold;
+    cursor: pointer;
+    color: #7f8c8d;
+    transition: color 0.3s ease;
+    background: none;
+    border: none;
+    padding: 0;
+    line-height: 1;
+}
+
+.modal-close:hover {
+    color: #e74c3c;
+}
+
+/* Dark Mode Support */
+body.dark-mode .program-description-card,
+body.dark-mode .program-templates-section {
+    background: #2a2a2a;
+    color: #f0f0f0;
+}
+
+body.dark-mode .program-description-card h3,
+body.dark-mode .program-templates-section h2,
+body.dark-mode .schedule-header h3,
+body.dark-mode .templates-list-section h3,
+body.dark-mode .week-header,
+body.dark-mode .template-title {
+    color: #f0f0f0;
+}
+
+body.dark-mode .day-card {
+    background: #333;
+    border-color: #555;
+}
+
+body.dark-mode .day-card.empty-day {
+    background: #2a2a2a;
+}
+
+body.dark-mode .template-card {
+    background: #333;
+    border-color: #555;
+}
+
+body.dark-mode .template-card:hover {
+    background: #3a3a3a;
+}
+
+body.dark-mode .schedule-table th,
+body.dark-mode .week-number {
+    background: #333;
+    color: #f0f0f0;
+}
+
+body.dark-mode .schedule-table td {
+    border-color: #555;
+}
+
+body.dark-mode .modal-content {
+    background-color: #2a2a2a;
+    color: #f0f0f0;
+}
+
+body.dark-mode .modal-actions {
+    background: #333;
+    border-top-color: #555;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .page-header {
+        flex-direction: column;
+        gap: 15px;
+        align-items: flex-start;
+    }
+    
+    .program-meta {
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .week-grid {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+    
+    .day-card {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px;
+        min-height: auto;
+    }
+    
+    .templates-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .schedule-table-container {
+        font-size: 0.8rem;
+    }
+    
+    .schedule-table th,
+    .schedule-table td {
+        padding: 8px 4px;
+    }
+}
+</style>
+
+<script>
+let isTableView = false;
+
+// Set default start date to today
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('start-date').valueAsDate = new Date();
+});
+
+// Event listeners
+document.getElementById('start-program-form').addEventListener('submit', handleStartProgramSubmit);
+document.getElementById('share-form').addEventListener('submit', handleShareSubmit);
+
+function startProgram(programId) {
+    document.getElementById('start-program-modal').style.display = 'block';
+}
+
+function hideStartProgramModal() {
+    document.getElementById('start-program-modal').style.display = 'none';
+}
+
+function editProgram(programId) {
+    window.location.href = `/programs/${programId}/edit`;
+}
+
+function shareProgram(programId) {
+    document.getElementById('share-modal').style.display = 'block';
+}
+
+function hideShareModal() {
+    document.getElementById('share-modal').style.display = 'none';
+}
+
+function viewTemplate(templateId) {
+    window.location.href = `/templates/${templateId}`;
+}
+
+function createWorkoutFromTemplate(templateId) {
+    // This could open a modal or redirect to create workout page
+    window.location.href = `/templates/${templateId}/create-workout`;
+}
+
+function toggleScheduleView() {
+    const calendarView = document.getElementById('calendar-view');
+    const tableView = document.getElementById('table-view');
+    const toggleButton = document.getElementById('schedule-toggle');
+    
+    if (isTableView) {
+        // Switch to calendar view
+        calendarView.style.display = 'block';
+        tableView.style.display = 'none';
+        toggleButton.innerHTML = '<i class="fas fa-table"></i> Table View';
+        isTableView = false;
+    } else {
+        // Switch to table view
+        calendarView.style.display = 'none';
+        tableView.style.display = 'block';
+        toggleButton.innerHTML = '<i class="fas fa-calendar"></i> Calendar View';
+        isTableView = true;
+    }
+}
+
+async function handleStartProgramSubmit(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(e.target);
+    const programData = {
+        program_id: parseInt(document.getElementById('start-program-id').value),
+        start_date: formData.get('start_date'),
+        notes: formData.get('notes')
+    };
+    
+    try {
+        const response = await fetch('/api/program-instances', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(programData)
+        });
+        
+        if (!response.ok) throw new Error('Failed to start program');
+        
+        const result = await response.json();
+        hideStartProgramModal();
+        showSuccess('Program started successfully!');
+        
+        // Optionally redirect to the program instance or stay on current page
+        // window.location.href = `/program-instances/${result.id}`;
+    } catch (error) {
+        console.error('Error starting program:', error);
+        showError('Failed to start program');
+    }
+}
+
+async function handleShareSubmit(e) {
+    e.preventDefault();
+    
+    const programId = document.getElementById('share-program-id').value;
+    const username = document.getElementById('share-username').value;
+    const canEdit = document.getElementById('share-can-edit').checked;
+    
+    try {
+        const response = await fetch(`/api/programs/${programId}/share`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, can_edit: canEdit })
+        });
+        
+        if (!response.ok) throw new Error('Failed to share program');
+        
+        hideShareModal();
+        showSuccess('Program shared successfully!');
+    } catch (error) {
+        console.error('Error sharing program:', error);
+        showError('Failed to share program');
+    }
+}
+
+function showSuccess(message) {
+    // You can implement a toast notification system here
+    alert(message);
+}
+
+function showError(message) {
+    // You can implement a toast notification system here
+    alert(message);
+}
+</script>
+{{end}}

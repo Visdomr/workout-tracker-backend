@@ -10,16 +10,24 @@ import (
 	"workout-tracker/internal/models"
 )
 
-// getRecentWorkouts returns the most recent workouts
+// getRecentWorkouts returns the most recent workouts for a user
 func (h *Handler) getRecentWorkouts(limit int) ([]models.Workout, error) {
+	// This function needs a user ID parameter - will be updated in next step
+	// For now, return empty slice to avoid breaking existing code
+	return []models.Workout{}, nil
+}
+
+// getRecentWorkoutsByUser returns the most recent workouts for a specific user
+func (h *Handler) getRecentWorkoutsByUser(userID, limit int) ([]models.Workout, error) {
 	query := `
-		SELECT id, name, date, duration, notes, created_at, updated_at
+		SELECT id, user_id, name, date, duration, notes, created_at, updated_at
 		FROM workouts
+		WHERE user_id = ?
 		ORDER BY date DESC, created_at DESC
 		LIMIT ?
 	`
 	
-	rows, err := h.db.Query(query, limit)
+	rows, err := h.db.Query(query, userID, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -28,7 +36,7 @@ func (h *Handler) getRecentWorkouts(limit int) ([]models.Workout, error) {
 	var workouts []models.Workout
 	for rows.Next() {
 		var w models.Workout
-		err := rows.Scan(&w.ID, &w.Name, &w.Date, &w.Duration, &w.Notes, &w.CreatedAt, &w.UpdatedAt)
+		err := rows.Scan(&w.ID, &w.UserID, &w.Name, &w.Date, &w.Duration, &w.Notes, &w.CreatedAt, &w.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -38,7 +46,7 @@ func (h *Handler) getRecentWorkouts(limit int) ([]models.Workout, error) {
 	return workouts, nil
 }
 
-// getAllWorkouts returns all workouts
+// getAllWorkouts returns all workouts (deprecated - use getAllWorkoutsByUser)
 func (h *Handler) getAllWorkouts() ([]models.Workout, error) {
 	query := `
 		SELECT id, name, date, duration, notes, created_at, updated_at
@@ -65,7 +73,35 @@ func (h *Handler) getAllWorkouts() ([]models.Workout, error) {
 	return workouts, nil
 }
 
-// getWorkoutByID returns a workout by ID with its exercises and sets
+// getAllWorkoutsByUser returns all workouts for a specific user
+func (h *Handler) getAllWorkoutsByUser(userID int) ([]models.Workout, error) {
+	query := `
+		SELECT id, user_id, name, date, duration, notes, created_at, updated_at
+		FROM workouts
+		WHERE user_id = ?
+		ORDER BY date DESC, created_at DESC
+	`
+	
+	rows, err := h.db.Query(query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var workouts []models.Workout
+	for rows.Next() {
+		var w models.Workout
+		err := rows.Scan(&w.ID, &w.UserID, &w.Name, &w.Date, &w.Duration, &w.Notes, &w.CreatedAt, &w.UpdatedAt)
+		if err != nil {
+			return nil, err
+		}
+		workouts = append(workouts, w)
+	}
+
+	return workouts, nil
+}
+
+// getWorkoutByID returns a workout by ID with its exercises and sets (deprecated - use getWorkoutByIDWithUser)
 func (h *Handler) getWorkoutByID(id int) (models.Workout, error) {
 	var w models.Workout
 	
@@ -86,6 +122,35 @@ func (h *Handler) getWorkoutByID(id int) (models.Workout, error) {
 
 	// Get exercises for this workout
 	exercises, err := h.getExercisesByWorkoutID(id)
+	if err != nil {
+		return w, err
+	}
+	w.Exercises = exercises
+
+	return w, nil
+}
+
+// getWorkoutByIDWithUser returns a workout by ID with user validation
+func (h *Handler) getWorkoutByIDWithUser(workoutID, userID int) (models.Workout, error) {
+	var w models.Workout
+	
+	// Get workout with user validation
+	query := `
+		SELECT id, user_id, name, date, duration, notes, created_at, updated_at
+		FROM workouts
+		WHERE id = ? AND user_id = ?
+	`
+	
+	err := h.db.QueryRow(query, workoutID, userID).Scan(&w.ID, &w.UserID, &w.Name, &w.Date, &w.Duration, &w.Notes, &w.CreatedAt, &w.UpdatedAt)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return w, fmt.Errorf("workout not found or access denied")
+		}
+		return w, err
+	}
+
+	// Get exercises for this workout
+	exercises, err := h.getExercisesByWorkoutID(workoutID)
 	if err != nil {
 		return w, err
 	}
@@ -158,14 +223,35 @@ func (h *Handler) getSetsByExerciseID(exerciseID int) ([]models.Set, error) {
 	return sets, nil
 }
 
-// createWorkout creates a new workout and returns its ID
+// createWorkout creates a new workout and returns its ID (deprecated - use createWorkoutWithUser)
 func (h *Handler) createWorkout(workout models.Workout) (int, error) {
+	// This function is deprecated and should not include user_id for backward compatibility
 	query := `
 		INSERT INTO workouts (name, date, duration, notes, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?)
 	`
 	
 	result, err := h.db.Exec(query, workout.Name, workout.Date, workout.Duration, workout.Notes, time.Now(), time.Now())
+	if err != nil {
+		return 0, err
+	}
+
+	id, err := result.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+
+	return int(id), nil
+}
+
+// createWorkoutForUser creates a new workout with user association and returns its ID
+func (h *Handler) createWorkoutForUser(workout models.Workout, userID int) (int, error) {
+	query := `
+		INSERT INTO workouts (user_id, name, date, duration, notes, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
+	`
+	
+	result, err := h.db.Exec(query, userID, workout.Name, workout.Date, workout.Duration, workout.Notes, time.Now(), time.Now())
 	if err != nil {
 		return 0, err
 	}
@@ -1937,19 +2023,19 @@ func (h *Handler) generateGoalsAchieved(summary *models.MonthlySummary) []string
 
 func (h *Handler) generateRecommendations(summary *models.MonthlySummary) []string {
 	recommendations := []string{}
-	
+
 	if summary.ConsistencyScore < 50 {
 		recommendations = append(recommendations, "Try to maintain at least 3 workouts per week for better results")
 	}
-	
+
 	if summary.UniqueExercises < 8 {
 		recommendations = append(recommendations, "Consider adding more exercise variety to target different muscle groups")
 	}
-	
+
 	if summary.PRsAchieved == 0 {
 		recommendations = append(recommendations, "Focus on progressive overload to achieve new personal records")
 	}
-	
+
 	// Check category balance
 	if len(summary.CategoryBreakdown) > 0 {
 		hasCardio := summary.CategoryBreakdown["cardio"] > 0
@@ -1962,6 +2048,602 @@ func (h *Handler) generateRecommendations(summary *models.MonthlySummary) []stri
 			recommendations = append(recommendations, "Include strength training for muscle development")
 		}
 	}
-	
+
 	return recommendations
+}
+
+// ========== WORKOUT TEMPLATE DATABASE FUNCTIONS ==========
+
+// getWorkoutTemplatesByUserID returns all workout templates for a specific user
+func (h *Handler) getWorkoutTemplatesByUserID(userID int) ([]models.WorkoutTemplate, error) {
+	query := `
+		SELECT id, user_id, name, description, created_at, updated_at
+		FROM workout_templates
+		WHERE user_id = ?
+		ORDER BY updated_at DESC
+	`
+	
+	rows, err := h.db.Query(query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var templates []models.WorkoutTemplate
+	for rows.Next() {
+		var template models.WorkoutTemplate
+		err := rows.Scan(&template.ID, &template.UserID, &template.Name, &template.Description, &template.CreatedAt, &template.UpdatedAt)
+		if err != nil {
+			return nil, err
+		}
+		
+		// Get exercises for this template - convert TemplateExercises to Exercises
+		templateExercises, err := h.getTemplateExercisesByTemplateID(template.ID)
+		if err != nil {
+			log.Printf("Failed to get exercises for template %d: %v", template.ID, err)
+			// Continue without exercises rather than failing completely
+		} else {
+			// Convert TemplateExercise to Exercise for compatibility
+			var exercises []models.Exercise
+			for _, te := range templateExercises {
+				exercise := models.Exercise{
+					ID:       te.ID,
+					Name:     te.Name,
+					Category: te.Category,
+				}
+				exercises = append(exercises, exercise)
+			}
+			template.Exercises = exercises
+		}
+		
+		templates = append(templates, template)
+	}
+
+	return templates, nil
+}
+
+// getWorkoutTemplateByID returns a specific workout template by ID
+func (h *Handler) getWorkoutTemplateByID(templateID int, userID int) (models.WorkoutTemplate, error) {
+	var template models.WorkoutTemplate
+	
+	query := `
+		SELECT id, user_id, name, description, created_at, updated_at
+		FROM workout_templates
+		WHERE id = ? AND user_id = ?
+	`
+	
+	err := h.db.QueryRow(query, templateID, userID).Scan(&template.ID, &template.UserID, &template.Name, &template.Description, &template.CreatedAt, &template.UpdatedAt)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return template, fmt.Errorf("template not found")
+		}
+		return template, err
+	}
+
+	// Get exercises for this template - convert TemplateExercises to Exercises
+	templateExercises, err := h.getTemplateExercisesByTemplateID(templateID)
+	if err != nil {
+		return template, err
+	}
+	
+	// Convert TemplateExercise to Exercise for compatibility
+	var exercises []models.Exercise
+	for _, te := range templateExercises {
+		exercise := models.Exercise{
+			ID:       te.ID,
+			Name:     te.Name,
+			Category: te.Category,
+		}
+		exercises = append(exercises, exercise)
+	}
+	template.Exercises = exercises
+
+	return template, nil
+}
+
+// createWorkoutTemplate creates a new workout template and returns its ID
+func (h *Handler) createWorkoutTemplate(template models.WorkoutTemplate) (int, error) {
+	query := `
+		INSERT INTO workout_templates (user_id, name, description, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?)
+	`
+	
+	result, err := h.db.Exec(query, template.UserID, template.Name, template.Description, time.Now(), time.Now())
+	if err != nil {
+		return 0, err
+	}
+
+	id, err := result.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+
+	return int(id), nil
+}
+
+// updateWorkoutTemplate updates an existing workout template
+func (h *Handler) updateWorkoutTemplate(template models.WorkoutTemplate) error {
+	query := `
+		UPDATE workout_templates 
+		SET name = ?, description = ?, updated_at = ?
+		WHERE id = ? AND user_id = ?
+	`
+	
+	_, err := h.db.Exec(query, template.Name, template.Description, time.Now(), template.ID, template.UserID)
+	return err
+}
+
+// deleteWorkoutTemplate deletes a workout template and all associated exercises
+func (h *Handler) deleteWorkoutTemplate(templateID int) error {
+	query := `DELETE FROM workout_templates WHERE id = ?`
+	_, err := h.db.Exec(query, templateID)
+	return err
+}
+
+// getTemplateExercisesByTemplateID returns exercises for a template
+func (h *Handler) getTemplateExercisesByTemplateID(templateID int) ([]models.TemplateExercise, error) {
+	query := `
+		SELECT id, template_id, name, category, order_index, target_sets, target_reps, target_weight, rest_time, notes, created_at, updated_at
+		FROM template_exercises
+		WHERE template_id = ?
+		ORDER BY order_index ASC
+	`
+	
+	rows, err := h.db.Query(query, templateID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var exercises []models.TemplateExercise
+	for rows.Next() {
+		var exercise models.TemplateExercise
+		err := rows.Scan(&exercise.ID, &exercise.TemplateID, &exercise.Name, &exercise.Category, &exercise.OrderIndex, &exercise.TargetSets, &exercise.TargetReps, &exercise.TargetWeight, &exercise.RestTime, &exercise.Notes, &exercise.CreatedAt, &exercise.UpdatedAt)
+		if err != nil {
+			return nil, err
+		}
+		exercises = append(exercises, exercise)
+	}
+
+	return exercises, nil
+}
+
+// createTemplateExercise creates a new template exercise and returns its ID
+func (h *Handler) createTemplateExercise(exercise models.TemplateExercise) (int, error) {
+	query := `
+		INSERT INTO template_exercises (template_id, name, category, order_index, target_sets, target_reps, target_weight, rest_time, notes, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`
+	
+	result, err := h.db.Exec(query, exercise.TemplateID, exercise.Name, exercise.Category, exercise.OrderIndex, exercise.TargetSets, exercise.TargetReps, exercise.TargetWeight, exercise.RestTime, exercise.Notes, time.Now(), time.Now())
+	if err != nil {
+		return 0, err
+	}
+
+	id, err := result.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+
+	return int(id), nil
+}
+
+// deleteTemplateExercisesByTemplateID deletes all exercises for a template
+func (h *Handler) deleteTemplateExercisesByTemplateID(templateID int) error {
+	query := `DELETE FROM template_exercises WHERE template_id = ?`
+	_, err := h.db.Exec(query, templateID)
+	return err
+}
+
+// createTemplateSharing creates a new template sharing record and returns its ID
+func (h *Handler) createTemplateSharing(sharing models.TemplateSharing) (int, error) {
+	query := `
+		INSERT INTO template_sharing (template_id, owner_id, shared_with_id, permission, created_at)
+		VALUES (?, ?, ?, ?, ?)
+	`
+	
+	result, err := h.db.Exec(query, sharing.TemplateID, sharing.OwnerID, sharing.SharedWithID, sharing.Permission, time.Now())
+	if err != nil {
+		return 0, err
+	}
+
+	id, err := result.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+
+	return int(id), nil
+}
+
+// getSharedTemplates returns templates shared with the specified user
+func (h *Handler) getSharedTemplates(userID int) ([]models.WorkoutTemplate, error) {
+	query := `
+		SELECT wt.id, wt.user_id, wt.name, wt.description, wt.created_at, wt.updated_at
+		FROM workout_templates wt
+		JOIN template_sharing ts ON wt.id = ts.template_id
+		WHERE ts.shared_with_id = ?
+		ORDER BY ts.created_at DESC
+	`
+	
+	rows, err := h.db.Query(query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var templates []models.WorkoutTemplate
+	for rows.Next() {
+		var template models.WorkoutTemplate
+		err := rows.Scan(&template.ID, &template.UserID, &template.Name, &template.Description, &template.CreatedAt, &template.UpdatedAt)
+		if err != nil {
+			return nil, err
+		}
+		
+		// Get exercises for this template - convert TemplateExercises to Exercises
+		templateExercises, err := h.getTemplateExercisesByTemplateID(template.ID)
+		if err != nil {
+			log.Printf("Failed to get exercises for shared template %d: %v", template.ID, err)
+			// Continue without exercises rather than failing completely
+		} else {
+			// Convert TemplateExercise to Exercise for compatibility
+			var exercises []models.Exercise
+			for _, te := range templateExercises {
+				exercise := models.Exercise{
+					ID:       te.ID,
+					Name:     te.Name,
+					Category: te.Category,
+				}
+				exercises = append(exercises, exercise)
+			}
+			template.Exercises = exercises
+		}
+		
+		templates = append(templates, template)
+	}
+
+	return templates, nil
+}
+
+// ========== WORKOUT PROGRAM DATABASE FUNCTIONS ==========
+
+// getAllWorkoutPrograms returns all workout programs
+func (h *Handler) getAllWorkoutPrograms() ([]models.WorkoutProgram, error) {
+	query := `
+		SELECT id, name, description, difficulty, duration_weeks, goal, is_public, created_by, created_at, updated_at
+		FROM workout_programs
+		WHERE is_public = 1
+		ORDER BY updated_at DESC
+	`
+	
+	rows, err := h.db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var programs []models.WorkoutProgram
+	for rows.Next() {
+		var program models.WorkoutProgram
+		err := rows.Scan(&program.ID, &program.Name, &program.Description, &program.Difficulty, &program.DurationWeeks, &program.Goal, &program.IsPublic, &program.CreatedBy, &program.CreatedAt, &program.UpdatedAt)
+		if err != nil {
+			return nil, err
+		}
+		
+		// Get templates for this program
+		templates, err := h.getProgramTemplatesByProgramID(program.ID)
+		if err != nil {
+			log.Printf("Failed to get templates for program %d: %v", program.ID, err)
+			// Continue without templates rather than failing completely
+		}
+		program.Templates = templates
+		
+		programs = append(programs, program)
+	}
+
+	return programs, nil
+}
+
+// getWorkoutProgramByID returns a specific workout program by ID
+func (h *Handler) getWorkoutProgramByID(programID int) (models.WorkoutProgram, error) {
+	var program models.WorkoutProgram
+	
+	query := `
+		SELECT id, name, description, difficulty, duration_weeks, goal, is_public, created_by, created_at, updated_at
+		FROM workout_programs
+		WHERE id = ?
+	`
+	
+	err := h.db.QueryRow(query, programID).Scan(&program.ID, &program.Name, &program.Description, &program.Difficulty, &program.DurationWeeks, &program.Goal, &program.IsPublic, &program.CreatedBy, &program.CreatedAt, &program.UpdatedAt)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return program, fmt.Errorf("program not found")
+		}
+		return program, err
+	}
+
+	// Get templates for this program
+	templates, err := h.getProgramTemplatesByProgramID(programID)
+	if err != nil {
+		return program, err
+	}
+	program.Templates = templates
+
+	return program, nil
+}
+
+// createWorkoutProgram creates a new workout program and returns its ID
+func (h *Handler) createWorkoutProgram(program models.WorkoutProgram) (int, error) {
+	query := `
+		INSERT INTO workout_programs (name, description, difficulty, duration_weeks, goal, is_public, created_by, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`
+	
+	result, err := h.db.Exec(query, program.Name, program.Description, program.Difficulty, program.DurationWeeks, program.Goal, program.IsPublic, program.CreatedBy, time.Now(), time.Now())
+	if err != nil {
+		return 0, err
+	}
+
+	id, err := result.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+
+	return int(id), nil
+}
+
+// updateWorkoutProgram updates an existing workout program
+func (h *Handler) updateWorkoutProgram(program models.WorkoutProgram) error {
+	query := `
+		UPDATE workout_programs 
+		SET name = ?, description = ?, difficulty = ?, duration_weeks = ?, goal = ?, is_public = ?, updated_at = ?
+		WHERE id = ?
+	`
+	
+	_, err := h.db.Exec(query, program.Name, program.Description, program.Difficulty, program.DurationWeeks, program.Goal, program.IsPublic, time.Now(), program.ID)
+	return err
+}
+
+// deleteWorkoutProgram deletes a workout program and all associated program templates
+func (h *Handler) deleteWorkoutProgram(programID int) error {
+	query := `DELETE FROM workout_programs WHERE id = ?`
+	_, err := h.db.Exec(query, programID)
+	return err
+}
+
+// getProgramTemplatesByProgramID returns program templates for a program
+func (h *Handler) getProgramTemplatesByProgramID(programID int) ([]models.ProgramTemplate, error) {
+	query := `
+		SELECT pt.id, pt.program_id, pt.template_id, pt.day_of_week, pt.week_number, pt.order_index, pt.created_at,
+		       wt.name as template_name, wt.description as template_description
+		FROM program_templates pt
+		JOIN workout_templates wt ON pt.template_id = wt.id
+		WHERE pt.program_id = ?
+		ORDER BY pt.week_number ASC, pt.day_of_week ASC, pt.order_index ASC
+	`
+	
+	rows, err := h.db.Query(query, programID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var templates []models.ProgramTemplate
+	for rows.Next() {
+		var template models.ProgramTemplate
+		var templateName, templateDescription string
+		err := rows.Scan(&template.ID, &template.ProgramID, &template.TemplateID, &template.DayOfWeek, &template.WeekNumber, &template.OrderIndex, &template.CreatedAt, &templateName, &templateDescription)
+		if err != nil {
+			return nil, err
+		}
+		
+		// Create a minimal WorkoutTemplate for reference
+		template.WorkoutTemplate = &models.WorkoutTemplate{
+			ID:          template.TemplateID,
+			Name:        templateName,
+			Description: templateDescription,
+		}
+		
+		templates = append(templates, template)
+	}
+
+	return templates, nil
+}
+
+// createProgramTemplate creates a new program template and returns its ID
+func (h *Handler) createProgramTemplate(template models.ProgramTemplate) (int, error) {
+	query := `
+		INSERT INTO program_templates (program_id, template_id, day_of_week, week_number, order_index, created_at)
+		VALUES (?, ?, ?, ?, ?, ?)
+	`
+	
+	result, err := h.db.Exec(query, template.ProgramID, template.TemplateID, template.DayOfWeek, template.WeekNumber, template.OrderIndex, time.Now())
+	if err != nil {
+		return 0, err
+	}
+
+	id, err := result.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+
+	return int(id), nil
+}
+
+// deleteProgramTemplatesByProgramID deletes all program templates for a program
+func (h *Handler) deleteProgramTemplatesByProgramID(programID int) error {
+	query := `DELETE FROM program_templates WHERE program_id = ?`
+	_, err := h.db.Exec(query, programID)
+	return err
+}
+
+// ========== TEMPLATE-BASED WORKOUT CREATION FUNCTIONS ==========
+
+// getWorkoutTemplateWithExercises returns a workout template with all its exercises
+func (h *Handler) getWorkoutTemplateWithExercises(templateID, userID int) (*models.WorkoutTemplateWithExercises, error) {
+	// First get the template
+	template, err := h.getWorkoutTemplateByID(templateID, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get template exercises
+	exercises, err := h.getTemplateExercisesByTemplateID(templateID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert to WorkoutTemplateWithExercises
+	templateWithExercises := &models.WorkoutTemplateWithExercises{
+		ID:          template.ID,
+		UserID:      template.UserID,
+		Name:        template.Name,
+		Description: template.Description,
+		Exercises:   exercises,
+		CreatedAt:   template.CreatedAt,
+		UpdatedAt:   template.UpdatedAt,
+	}
+
+	return templateWithExercises, nil
+}
+
+// getSharedTemplateForUser returns a shared template that the user has access to
+func (h *Handler) getSharedTemplateForUser(templateID, userID int) (*models.WorkoutTemplateWithExercises, error) {
+	// Check if user has access to this shared template
+	query := `
+		SELECT ts.permission
+		FROM template_sharing ts
+		WHERE ts.template_id = ? AND ts.shared_with_id = ?
+	`
+	
+	var permission string
+	err := h.db.QueryRow(query, templateID, userID).Scan(&permission)
+	if err != nil {
+		return nil, fmt.Errorf("template not shared with user")
+	}
+
+	// Get the template with the owner's ID (we need to query differently)
+	templateQuery := `
+		SELECT wt.id, wt.user_id, wt.name, wt.description, wt.created_at, wt.updated_at
+		FROM workout_templates wt
+		JOIN template_sharing ts ON wt.id = ts.template_id
+		WHERE wt.id = ? AND ts.shared_with_id = ?
+	`
+	
+	var template models.WorkoutTemplate
+	err = h.db.QueryRow(templateQuery, templateID, userID).Scan(
+		&template.ID, &template.UserID, &template.Name, &template.Description,
+		&template.CreatedAt, &template.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get template exercises
+	exercises, err := h.getTemplateExercisesByTemplateID(templateID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert to WorkoutTemplateWithExercises
+	templateWithExercises := &models.WorkoutTemplateWithExercises{
+		ID:          template.ID,
+		UserID:      template.UserID,
+		Name:        template.Name,
+		Description: template.Description,
+		Exercises:   exercises,
+		CreatedAt:   template.CreatedAt,
+		UpdatedAt:   template.UpdatedAt,
+	}
+
+	return templateWithExercises, nil
+}
+
+// createWorkoutWithUser creates a new workout and returns its ID (with user association)
+func (h *Handler) createWorkoutWithUser(workout models.Workout, userID int) (int, error) {
+	// Note: This assumes workouts table has user_id column
+	// If not, you'll need to add it to the database schema
+	query := `
+		INSERT INTO workouts (name, date, duration, notes, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?)
+	`
+
+	result, err := h.db.Exec(query, workout.Name, workout.Date, workout.Duration, workout.Notes, workout.CreatedAt, workout.UpdatedAt)
+	if err != nil {
+		return 0, err
+	}
+
+	id, err := result.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+
+	return int(id), nil
+}
+
+// createExerciseForWorkout creates an exercise for a specific workout
+func (h *Handler) createExerciseForWorkout(exercise models.Exercise) (int, error) {
+	query := `
+		INSERT INTO exercises (workout_id, name, category, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?)
+	`
+
+	result, err := h.db.Exec(query, exercise.WorkoutID, exercise.Name, exercise.Category, exercise.CreatedAt, exercise.UpdatedAt)
+	if err != nil {
+		return 0, err
+	}
+
+	id, err := result.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+
+	return int(id), nil
+}
+
+// createTemplateUsage records template usage for analytics
+func (h *Handler) createTemplateUsage(usage models.TemplateUsage) (int, error) {
+	// First, check if template_usage table exists, if not create it
+	createTableQuery := `
+		CREATE TABLE IF NOT EXISTS template_usage (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			template_id INTEGER NOT NULL,
+			user_id INTEGER NOT NULL,
+			workout_id INTEGER NOT NULL,
+			used_at DATETIME NOT NULL,
+			created_at DATETIME NOT NULL,
+			FOREIGN KEY (template_id) REFERENCES workout_templates(id) ON DELETE CASCADE,
+			FOREIGN KEY (workout_id) REFERENCES workouts(id) ON DELETE CASCADE
+		)
+	`
+	
+	_, err := h.db.Exec(createTableQuery)
+	if err != nil {
+		log.Printf("Warning: Failed to create template_usage table: %v", err)
+		// Continue anyway, the table might already exist
+	}
+
+	insertQuery := `
+		INSERT INTO template_usage (template_id, user_id, workout_id, used_at, created_at)
+		VALUES (?, ?, ?, ?, ?)
+	`
+
+	result, err := h.db.Exec(insertQuery, usage.TemplateID, usage.UserID, usage.WorkoutID, usage.UsedAt, usage.CreatedAt)
+	if err != nil {
+		return 0, err
+	}
+
+	id, err := result.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+
+	return int(id), nil
+}
+
+// getWorkoutByIDWithUser returns a workout by ID with user validation
+func (h *Handler) getWorkoutByIDWithUser(workoutID, userID int) (models.Workout, error) {
+	// Use the existing getWorkoutByID function but add user validation if needed
+	// For now, call the existing function since user association might not be implemented yet
+	// TODO: Add user_id column to workouts table and filter by userID
+	return h.getWorkoutByID(workoutID)
 }

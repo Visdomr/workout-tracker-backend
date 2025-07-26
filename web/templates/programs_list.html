@@ -1,0 +1,817 @@
+{{define "content"}}
+<div class="page-header">
+    <h1><i class="fas fa-calendar-alt"></i> Workout Programs</h1>
+    <div class="page-actions">
+        <button id="create-program-btn" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Create Program
+        </button>
+    </div>
+</div>
+
+<div class="programs-container">
+    <!-- Program Cards Container -->
+    <div id="programs-grid" class="programs-grid">
+        <!-- Programs will be loaded here via JavaScript -->
+    </div>
+
+    <!-- Empty State -->
+    <div id="empty-state" class="empty-state" style="display: none;">
+        <div class="empty-icon">
+            <i class="fas fa-calendar-alt"></i>
+        </div>
+        <h3>No Programs Yet</h3>
+        <p>Create your first workout program to organize your templates!</p>
+        <button class="btn btn-primary" onclick="showCreateProgramModal()">
+            <i class="fas fa-plus"></i> Create Your First Program
+        </button>
+    </div>
+
+    <!-- Loading State -->
+    <div id="loading-state" class="loading-state">
+        <div class="spinner"></div>
+        <p>Loading programs...</p>
+    </div>
+</div>
+
+<!-- Create/Edit Program Modal -->
+<div id="program-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="modal-title">Create Program</h2>
+            <button class="modal-close" onclick="hideProgramModal()">&times;</button>
+        </div>
+        <form id="program-form">
+            <div class="form-group">
+                <label for="program-name">Program Name*</label>
+                <input type="text" id="program-name" name="name" required>
+            </div>
+            <div class="form-group">
+                <label for="program-description">Description</label>
+                <textarea id="program-description" name="description" rows="3" placeholder="Describe this workout program..."></textarea>
+            </div>
+            <div class="form-group">
+                <label for="program-duration">Duration (weeks)</label>
+                <input type="number" id="program-duration" name="duration_weeks" min="1" max="52" placeholder="e.g. 8">
+            </div>
+            
+            <!-- Templates Section -->
+            <div class="form-section">
+                <div class="section-header">
+                    <h3>Templates</h3>
+                    <button type="button" class="btn btn-secondary" onclick="addTemplateToProgram()">
+                        <i class="fas fa-plus"></i> Add Template
+                    </button>
+                </div>
+                <div id="program-templates" class="templates-list">
+                    <!-- Template items will be added here -->
+                </div>
+            </div>
+
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="hideProgramModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary">
+                    <span id="submit-text">Create Program</span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Share Program Modal -->
+<div id="share-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Share Program</h2>
+            <button class="modal-close" onclick="hideShareModal()">&times;</button>
+        </div>
+        <form id="share-form">
+            <input type="hidden" id="share-program-id">
+            <div class="form-group">
+                <label for="share-username">Username or Email</label>
+                <input type="text" id="share-username" name="username" required placeholder="Enter username or email">
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="share-can-edit" name="can_edit"> 
+                    Allow editing
+                </label>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="hideShareModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Share Program</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+.programs-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.programs-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.program-card {
+    background: #fff;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.program-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+}
+
+.program-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 15px;
+}
+
+.program-title {
+    font-size: 1.3em;
+    font-weight: bold;
+    color: #2c3e50;
+    margin: 0;
+}
+
+.program-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.action-btn {
+    background: none;
+    border: none;
+    padding: 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    color: #7f8c8d;
+    transition: all 0.2s ease;
+    font-size: 1rem;
+}
+
+.action-btn:hover {
+    background: #f8f9fa;
+    color: #2c3e50;
+}
+
+.action-btn[title="View"]:hover {
+    color: #3498db;
+    background: #ebf3fd;
+}
+
+.action-btn[title="Edit"]:hover {
+    color: #f39c12;
+    background: #fef9e7;
+}
+
+.action-btn[title="Share"]:hover {
+    color: #27ae60;
+    background: #d5f4e6;
+}
+
+.action-btn[title="Delete"]:hover {
+    color: #e74c3c;
+    background: #fdf2f2;
+}
+
+.program-meta {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 15px;
+    font-size: 0.9em;
+    color: #7f8c8d;
+}
+
+.program-description {
+    color: #7f8c8d;
+    margin-bottom: 15px;
+    line-height: 1.4;
+}
+
+.program-templates {
+    margin-bottom: 15px;
+}
+
+.program-templates h4 {
+    color: #2c3e50;
+    font-size: 1em;
+    margin-bottom: 8px;
+}
+
+.templates-preview {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.template-tag {
+    background: #3498db;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.75em;
+    font-weight: bold;
+}
+
+.program-stats {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid #ecf0f1;
+}
+
+.program-duration {
+    background: #27ae60;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.8em;
+    font-weight: bold;
+}
+
+.program-usage {
+    color: #7f8c8d;
+    font-size: 0.9em;
+}
+
+/* Modal Content Styling */
+.modal-content {
+    max-width: 700px;
+}
+
+.form-section {
+    margin: 1.5rem 0;
+    padding: 0 1.5rem;
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.section-header h3 {
+    color: #2c3e50;
+    margin: 0;
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+
+.templates-list {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid #ecf0f1;
+    border-radius: 4px;
+    padding: 10px;
+    background: #f8f9fa;
+}
+
+.template-item {
+    display: grid;
+    grid-template-columns: 2fr 100px 80px 40px;
+    gap: 10px;
+    align-items: center;
+    padding: 10px;
+    background: white;
+    border-radius: 4px;
+    margin-bottom: 10px;
+}
+
+.template-item:last-child {
+    margin-bottom: 0;
+}
+
+.template-item .form-group {
+    margin: 0;
+    padding: 0;
+}
+
+.template-item label {
+    font-size: 0.9em;
+    margin-bottom: 5px;
+    color: #2c3e50;
+    font-weight: 500;
+}
+
+.template-item select,
+.template-item input {
+    font-size: 0.9em;
+    padding: 6px 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.template-item select:focus,
+.template-item input:focus {
+    outline: none;
+    border-color: #e74c3c;
+}
+
+.remove-template {
+    background: #e74c3c;
+    color: white;
+    border: none;
+    padding: 6px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8em;
+    transition: background-color 0.2s ease;
+}
+
+.remove-template:hover {
+    background: #c0392b;
+}
+
+.loading-state, .empty-state {
+    text-align: center;
+    padding: 40px;
+    color: #7f8c8d;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #ecf0f1;
+    border-top: 4px solid #e74c3c;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 20px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.empty-icon {
+    font-size: 4em;
+    color: #bdc3c7;
+    margin-bottom: 20px;
+}
+
+.empty-state h3 {
+    color: #2c3e50;
+    margin-bottom: 1rem;
+    font-size: 1.5rem;
+}
+
+.empty-state p {
+    color: #7f8c8d;
+    margin-bottom: 2rem;
+    font-size: 1.1rem;
+}
+
+/* Modal Actions */
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    padding: 1.5rem;
+    border-top: 1px solid #ecf0f1;
+    background: #f8f9fa;
+    border-radius: 0 0 8px 8px;
+}
+
+/* Modal Close Button */
+.modal-close {
+    font-size: 1.5rem;
+    font-weight: bold;
+    cursor: pointer;
+    color: #7f8c8d;
+    transition: color 0.3s ease;
+    background: none;
+    border: none;
+    padding: 0;
+    line-height: 1;
+}
+
+.modal-close:hover {
+    color: #e74c3c;
+}
+
+/* Dark Mode Support */
+body.dark-mode .program-card {
+    background: #2a2a2a;
+    color: #f0f0f0;
+}
+
+body.dark-mode .program-title {
+    color: #f0f0f0;
+}
+
+body.dark-mode .program-meta,
+body.dark-mode .program-description,
+body.dark-mode .program-usage {
+    color: #bdc3c7;
+}
+
+body.dark-mode .action-btn {
+    color: #bdc3c7;
+}
+
+body.dark-mode .action-btn:hover {
+    background: #3a3a3a;
+    color: #f0f0f0;
+}
+
+body.dark-mode .modal-content {
+    background-color: #2a2a2a;
+    color: #f0f0f0;
+}
+
+body.dark-mode .loading-state,
+body.dark-mode .empty-state {
+    background: #2a2a2a;
+    color: #bdc3c7;
+}
+
+body.dark-mode .empty-state h3 {
+    color: #f0f0f0;
+}
+
+body.dark-mode .templates-list {
+    background: #333;
+    border-color: #555;
+}
+
+body.dark-mode .template-item {
+    background: #2a2a2a;
+}
+</style>
+
+<script>
+let currentProgramId = null;
+let templateCounter = 0;
+let availableTemplates = [];
+
+// Load programs and templates on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadPrograms();
+    loadAvailableTemplates();
+});
+
+// Event listeners
+document.getElementById('create-program-btn').addEventListener('click', showCreateProgramModal);
+document.getElementById('program-form').addEventListener('submit', handleProgramSubmit);
+document.getElementById('share-form').addEventListener('submit', handleShareSubmit);
+
+async function loadPrograms() {
+    const loadingState = document.getElementById('loading-state');
+    const emptyState = document.getElementById('empty-state');
+    const programsGrid = document.getElementById('programs-grid');
+    
+    loadingState.style.display = 'block';
+    emptyState.style.display = 'none';
+    programsGrid.innerHTML = '';
+    
+    try {
+        const response = await fetch('/api/programs');
+        if (!response.ok) throw new Error('Failed to load programs');
+        
+        const programs = await response.json();
+        loadingState.style.display = 'none';
+        
+        if (programs.length === 0) {
+            emptyState.style.display = 'block';
+        } else {
+            renderPrograms(programs);
+        }
+    } catch (error) {
+        console.error('Error loading programs:', error);
+        loadingState.style.display = 'none';
+        showError('Failed to load programs');
+    }
+}
+
+async function loadAvailableTemplates() {
+    try {
+        const response = await fetch('/api/templates');
+        if (response.ok) {
+            availableTemplates = await response.json();
+        }
+    } catch (error) {
+        console.error('Error loading templates:', error);
+    }
+}
+
+function renderPrograms(programs) {
+    const programsGrid = document.getElementById('programs-grid');
+    programsGrid.innerHTML = programs.map(program => `
+        <div class="program-card">
+            <div class="program-header">
+                <h3 class="program-title">${escapeHtml(program.name)}</h3>
+                <div class="program-actions">
+                    <button class="action-btn" onclick="viewProgram(${program.id})" title="View">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    <button class="action-btn" onclick="editProgram(${program.id})" title="Edit">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="action-btn" onclick="shareProgram(${program.id})" title="Share">
+                        <i class="fas fa-share"></i>
+                    </button>
+                    <button class="action-btn" onclick="deleteProgram(${program.id})" title="Delete">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="program-meta">
+                ${program.duration_weeks ? `<span><i class="fas fa-calendar"></i> ${program.duration_weeks} weeks</span>` : ''}
+                <span><i class="fas fa-clipboard-list"></i> ${program.template_count || 0} templates</span>
+            </div>
+            ${program.description ? `<div class="program-description">${escapeHtml(program.description)}</div>` : ''}
+            <div class="program-templates">
+                <h4>Templates:</h4>
+                <div class="templates-preview">
+                    ${(program.templates || []).slice(0, 3).map(template => 
+                        `<span class="template-tag">${escapeHtml(template.name)}</span>`
+                    ).join('')}
+                    ${(program.templates || []).length > 3 ? 
+                        `<span class="template-tag">+${(program.templates || []).length - 3} more</span>` : ''
+                    }
+                </div>
+            </div>
+            <div class="program-stats">
+                ${program.duration_weeks ? `<span class="program-duration">${program.duration_weeks} weeks</span>` : ''}
+                <span class="program-usage">Used ${program.usage_count || 0} times</span>
+            </div>
+        </div>
+    `).join('');
+}
+
+function showCreateProgramModal() {
+    currentProgramId = null;
+    document.getElementById('modal-title').textContent = 'Create Program';
+    document.getElementById('submit-text').textContent = 'Create Program';
+    document.getElementById('program-form').reset();
+    document.getElementById('program-templates').innerHTML = '';
+    templateCounter = 0;
+    document.getElementById('program-modal').style.display = 'block';
+}
+
+function hideProgramModal() {
+    document.getElementById('program-modal').style.display = 'none';
+}
+
+function addTemplateToProgram() {
+    templateCounter++;
+    const templatesContainer = document.getElementById('program-templates');
+    const templateOptions = availableTemplates.map(template => 
+        `<option value="${template.id}">${escapeHtml(template.name)}</option>`
+    ).join('');
+    
+    const templateHtml = `
+        <div class="template-item" data-template-id="${templateCounter}">
+            <div class="form-group">
+                <label>Template*</label>
+                <select name="templates[${templateCounter}][template_id]" required>
+                    <option value="">Select a template</option>
+                    ${templateOptions}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Day of Week</label>
+                <select name="templates[${templateCounter}][day_of_week]">
+                    <option value="">Any day</option>
+                    <option value="1">Monday</option>
+                    <option value="2">Tuesday</option>
+                    <option value="3">Wednesday</option>
+                    <option value="4">Thursday</option>
+                    <option value="5">Friday</option>
+                    <option value="6">Saturday</option>
+                    <option value="7">Sunday</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Week</label>
+                <input type="number" name="templates[${templateCounter}][week_number]" min="1" placeholder="All">
+            </div>
+            <button type="button" class="remove-template" onclick="removeTemplateFromProgram(${templateCounter})">
+                <i class="fas fa-trash"></i>
+            </button>
+        </div>
+    `;
+    templatesContainer.insertAdjacentHTML('beforeend', templateHtml);
+}
+
+function removeTemplateFromProgram(id) {
+    const templateItem = document.querySelector(`[data-template-id="${id}"]`);
+    if (templateItem) {
+        templateItem.remove();
+    }
+}
+
+async function handleProgramSubmit(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(e.target);
+    const templates = [];
+    
+    // Collect template data
+    const templateItems = document.querySelectorAll('.template-item');
+    templateItems.forEach((item, index) => {
+        const templateId = parseInt(item.querySelector('select[name*="[template_id]"]').value);
+        const dayOfWeek = parseInt(item.querySelector('select[name*="[day_of_week]"]').value) || null;
+        const weekNumber = parseInt(item.querySelector('input[name*="[week_number]"]').value) || null;
+        
+        if (templateId) {
+            templates.push({
+                template_id: templateId,
+                day_of_week: dayOfWeek,
+                week_number: weekNumber,
+                order_in_program: index + 1
+            });
+        }
+    });
+    
+    const programData = {
+        name: formData.get('name'),
+        description: formData.get('description'),
+        duration_weeks: parseInt(formData.get('duration_weeks')) || null,
+        templates
+    };
+    
+    try {
+        const url = currentProgramId ? `/api/programs/${currentProgramId}` : '/api/programs';
+        const method = currentProgramId ? 'PUT' : 'POST';
+        
+        const response = await fetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(programData)
+        });
+        
+        if (!response.ok) throw new Error('Failed to save program');
+        
+        hideProgramModal();
+        loadPrograms();
+        showSuccess(currentProgramId ? 'Program updated successfully!' : 'Program created successfully!');
+    } catch (error) {
+        console.error('Error saving program:', error);
+        showError('Failed to save program');
+    }
+}
+
+function viewProgram(programId) {
+    window.location.href = `/programs/${programId}`;
+}
+
+async function editProgram(programId) {
+    try {
+        const response = await fetch(`/api/programs/${programId}`);
+        if (!response.ok) throw new Error('Failed to load program');
+        
+        const program = await response.json();
+        
+        currentProgramId = programId;
+        document.getElementById('modal-title').textContent = 'Edit Program';
+        document.getElementById('submit-text').textContent = 'Update Program';
+        
+        // Populate form
+        document.getElementById('program-name').value = program.name || '';
+        document.getElementById('program-description').value = program.description || '';
+        document.getElementById('program-duration').value = program.duration_weeks || '';
+        
+        // Load templates
+        const templatesContainer = document.getElementById('program-templates');
+        templatesContainer.innerHTML = '';
+        templateCounter = 0;
+        
+        if (program.templates) {
+            program.templates.forEach(template => {
+                templateCounter++;
+                const templateOptions = availableTemplates.map(t => 
+                    `<option value="${t.id}" ${t.id === template.template_id ? 'selected' : ''}>${escapeHtml(t.name)}</option>`
+                ).join('');
+                
+                const templateHtml = `
+                    <div class="template-item" data-template-id="${templateCounter}">
+                        <div class="form-group">
+                            <label>Template*</label>
+                            <select name="templates[${templateCounter}][template_id]" required>
+                                <option value="">Select a template</option>
+                                ${templateOptions}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Day of Week</label>
+                            <select name="templates[${templateCounter}][day_of_week]">
+                                <option value="">Any day</option>
+                                <option value="1" ${template.day_of_week === 1 ? 'selected' : ''}>Monday</option>
+                                <option value="2" ${template.day_of_week === 2 ? 'selected' : ''}>Tuesday</option>
+                                <option value="3" ${template.day_of_week === 3 ? 'selected' : ''}>Wednesday</option>
+                                <option value="4" ${template.day_of_week === 4 ? 'selected' : ''}>Thursday</option>
+                                <option value="5" ${template.day_of_week === 5 ? 'selected' : ''}>Friday</option>
+                                <option value="6" ${template.day_of_week === 6 ? 'selected' : ''}>Saturday</option>
+                                <option value="7" ${template.day_of_week === 7 ? 'selected' : ''}>Sunday</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Week</label>
+                            <input type="number" name="templates[${templateCounter}][week_number]" min="1" value="${template.week_number || ''}" placeholder="All">
+                        </div>
+                        <button type="button" class="remove-template" onclick="removeTemplateFromProgram(${templateCounter})">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                `;
+                templatesContainer.insertAdjacentHTML('beforeend', templateHtml);
+            });
+        }
+        
+        document.getElementById('program-modal').style.display = 'block';
+    } catch (error) {
+        console.error('Error loading program for editing:', error);
+        showError('Failed to load program for editing');
+    }
+}
+
+async function deleteProgram(programId) {
+    if (!confirm('Are you sure you want to delete this program? This action cannot be undone.')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/programs/${programId}`, {
+            method: 'DELETE'
+        });
+        
+        if (!response.ok) throw new Error('Failed to delete program');
+        
+        loadPrograms();
+        showSuccess('Program deleted successfully!');
+    } catch (error) {
+        console.error('Error deleting program:', error);
+        showError('Failed to delete program');
+    }
+}
+
+function shareProgram(programId) {
+    document.getElementById('share-program-id').value = programId;
+    document.getElementById('share-form').reset();
+    document.getElementById('share-modal').style.display = 'block';
+}
+
+function hideShareModal() {
+    document.getElementById('share-modal').style.display = 'none';
+}
+
+async function handleShareSubmit(e) {
+    e.preventDefault();
+    
+    const programId = document.getElementById('share-program-id').value;
+    const username = document.getElementById('share-username').value;
+    const canEdit = document.getElementById('share-can-edit').checked;
+    
+    try {
+        const response = await fetch(`/api/programs/${programId}/share`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, can_edit: canEdit })
+        });
+        
+        if (!response.ok) throw new Error('Failed to share program');
+        
+        hideShareModal();
+        showSuccess('Program shared successfully!');
+    } catch (error) {
+        console.error('Error sharing program:', error);
+        showError('Failed to share program');
+    }
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function showSuccess(message) {
+    // You can implement a toast notification system here
+    alert(message);
+}
+
+function showError(message) {
+    // You can implement a toast notification system here
+    alert(message);
+}
+</script>
+{{end}}
