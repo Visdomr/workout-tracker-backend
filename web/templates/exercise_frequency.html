@@ -1,0 +1,567 @@
+{{template "base.html" .}}
+
+{{define "head"}}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .frequency-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .page-header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .page-title {
+            font-size: 2.5rem;
+            color: #333;
+            margin-bottom: 0.5rem;
+            font-weight: 700;
+        }
+
+        .page-subtitle {
+            color: #666;
+            font-size: 1.1rem;
+        }
+
+        .frequency-overview {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 3rem;
+        }
+
+        .overview-card {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .overview-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+        }
+
+        .overview-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            margin: 0 auto 1rem;
+            color: white;
+        }
+
+        .total-icon {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+        }
+
+        .avg-icon {
+            background: linear-gradient(135deg, #5cb85c, #4cae4c);
+        }
+
+        .most-icon {
+            background: linear-gradient(135deg, #ff6b35, #ff8c42);
+        }
+
+        .recent-icon {
+            background: linear-gradient(135deg, #f39c12, #e67e22);
+        }
+
+        .overview-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 0.5rem;
+        }
+
+        .overview-label {
+            font-size: 1rem;
+            color: #666;
+            font-weight: 500;
+        }
+
+        .overview-subtext {
+            font-size: 0.9rem;
+            color: #999;
+            margin-top: 0.25rem;
+        }
+
+        .charts-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+
+        .chart-card {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .chart-title {
+            font-size: 1.3rem;
+            color: #333;
+            margin-bottom: 1.5rem;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 350px;
+            margin-bottom: 1rem;
+        }
+
+        .exercise-list {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .exercise-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem;
+            border-bottom: 1px solid #e9ecef;
+            transition: background-color 0.3s;
+        }
+
+        .exercise-item:hover {
+            background-color: #f8f9fa;
+        }
+
+        .exercise-item:last-child {
+            border-bottom: none;
+        }
+
+        .exercise-info {
+            flex: 1;
+        }
+
+        .exercise-name {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 0.25rem;
+            font-size: 1.1rem;
+        }
+
+        .exercise-category {
+            font-size: 0.9rem;
+            color: #666;
+            text-transform: capitalize;
+        }
+
+        .exercise-stats {
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+        }
+
+        .stat-group {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-weight: 700;
+            color: #ff6b35;
+            font-size: 1.2rem;
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: #666;
+            margin-top: 0.25rem;
+        }
+
+        .frequency-bar {
+            width: 100px;
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 0.5rem 0;
+        }
+
+        .frequency-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff6b35, #ff8c42);
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+
+        .percentage-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: white;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            margin-left: 1rem;
+        }
+
+        .time-filters {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 2rem;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .time-filter-btn {
+            padding: 0.5rem 1rem;
+            border: 2px solid #667eea;
+            background: white;
+            color: #667eea;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+
+        .time-filter-btn.active,
+        .time-filter-btn:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 3rem;
+            color: #666;
+        }
+
+        .no-data-icon {
+            font-size: 3rem;
+            color: #dee2e6;
+            margin-bottom: 1rem;
+        }
+
+        /* Dark mode styles */
+        .dark-mode .overview-card,
+        .dark-mode .chart-card,
+        .dark-mode .exercise-list {
+            background: #2d2d2d;
+        }
+
+        .dark-mode .overview-value,
+        .dark-mode .exercise-name,
+        .dark-mode .chart-title {
+            color: #e0e0e0;
+        }
+
+        .dark-mode .page-title {
+            color: #e0e0e0;
+        }
+
+        .dark-mode .page-subtitle {
+            color: #b0b0b0;
+        }
+
+        .dark-mode .overview-label,
+        .dark-mode .exercise-category,
+        .dark-mode .stat-label,
+        .dark-mode .overview-subtext {
+            color: #b0b0b0;
+        }
+
+        .dark-mode .exercise-item:hover {
+            background-color: #404040;
+        }
+
+        .dark-mode .frequency-bar {
+            background: #404040;
+        }
+
+        @media (max-width: 768px) {
+            .charts-section {
+                grid-template-columns: 1fr;
+            }
+            
+            .exercise-stats {
+                flex-direction: column;
+                gap: 1rem;
+            }
+            
+            .overview-card {
+                padding: 1.5rem;
+            }
+        }
+    </style>
+{{end}}
+
+{{define "content"}}
+<div class="frequency-container">
+    <div class="page-header">
+        <h1 class="page-title">📅 Exercise Frequency</h1>
+        <p class="page-subtitle">Analyze how often you perform different exercises</p>
+    </div>
+
+    <div class="time-filters">
+        <button class="time-filter-btn" data-period="30">30 Days</button>
+        <button class="time-filter-btn active" data-period="90">3 Months</button>
+        <button class="time-filter-btn" data-period="180">6 Months</button>
+        <button class="time-filter-btn" data-period="365">1 Year</button>
+    </div>
+
+    <!-- Overview Cards -->
+    <div class="frequency-overview">
+        <div class="overview-card">
+            <div class="overview-icon total-icon">
+                🏋️
+            </div>
+            <div class="overview-value">{{if .TotalExercises}}{{.TotalExercises}}{{else}}0{{end}}</div>
+            <div class="overview-label">Total Exercises</div>
+            <div class="overview-subtext">Different exercises performed</div>
+        </div>
+        
+        <div class="overview-card">
+            <div class="overview-icon avg-icon">
+                📊
+            </div>
+            <div class="overview-value">{{if .AverageFrequency}}{{printf "%.1f" .AverageFrequency}}{{else}}0.0{{end}}</div>
+            <div class="overview-label">Avg Sessions/Week</div>
+            <div class="overview-subtext">Per exercise</div>
+        </div>
+        
+        <div class="overview-card">
+            <div class="overview-icon most-icon">
+                🔥
+            </div>
+            <div class="overview-value">{{if .MostFrequent}}{{.MostFrequent.ExerciseName}}{{else}}None{{end}}</div>
+            <div class="overview-label">Most Frequent</div>
+            <div class="overview-subtext">{{if .MostFrequent}}{{.MostFrequent.Count}} sessions{{else}}No data{{end}}</div>
+        </div>
+        
+        <div class="overview-card">
+            <div class="overview-icon recent-icon">
+                ⏰
+            </div>
+            <div class="overview-value">{{if .DaysAgo}}{{.DaysAgo}}{{else}}--{{end}}</div>
+            <div class="overview-label">Days Since Last</div>
+            <div class="overview-subtext">Most recent workout</div>
+        </div>
+    </div>
+
+    <!-- Charts Section -->
+    <div class="charts-section">
+        <div class="chart-card">
+            <h3 class="chart-title">Exercise Frequency Distribution</h3>
+            <div class="chart-container">
+                <canvas id="frequencyChart"></canvas>
+            </div>
+        </div>
+
+        <div class="chart-card">
+            <h3 class="chart-title">Category Breakdown</h3>
+            <div class="chart-container">
+                <canvas id="categoryChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Exercise List -->
+    <div class="exercise-list">
+        <h3 class="chart-title">Exercise Frequency Details</h3>
+        {{if .ExerciseFrequencies}}
+            {{range .ExerciseFrequencies}}
+            <div class="exercise-item">
+                <div class="exercise-info">
+                    <div class="exercise-name">{{.ExerciseName}}</div>
+                    <div class="exercise-category">{{.Category}}</div>
+                    <div class="frequency-bar">
+                        <div class="frequency-fill" style="width: {{.Percentage}}%"></div>
+                    </div>
+                </div>
+                <div class="exercise-stats">
+                    <div class="stat-group">
+                        <div class="stat-value">{{.Count}}</div>
+                        <div class="stat-label">Sessions</div>
+                    </div>
+                    <div class="stat-group">
+                        <div class="stat-value">{{printf "%.1f" .Percentage}}%</div>
+                        <div class="stat-label">Frequency</div>
+                    </div>
+                    <div class="stat-group">
+                        <div class="stat-value">{{.LastPerformed.Format "Jan 2"}}</div>
+                        <div class="stat-label">Last Done</div>
+                    </div>
+                </div>
+            </div>
+            {{end}}
+        {{else}}
+            <div class="no-data">
+                <div class="no-data-icon">
+                    <i class="fas fa-chart-bar"></i>
+                </div>
+                <h3>No Exercise Data</h3>
+                <p>Start logging workouts to see your exercise frequency patterns!</p>
+            </div>
+        {{end}}
+    </div>
+</div>
+
+<script>
+let frequencyChart;
+let categoryChart;
+let currentPeriod = 90;
+
+document.addEventListener('DOMContentLoaded', function() {
+    initializeCharts();
+    setupEventListeners();
+    loadFrequencyData();
+});
+
+function setupEventListeners() {
+    document.querySelectorAll('.time-filter-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.time-filter-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            currentPeriod = parseInt(this.dataset.period);
+            loadFrequencyData();
+        });
+    });
+}
+
+function initializeCharts() {
+    // Exercise Frequency Chart
+    const frequencyCtx = document.getElementById('frequencyChart').getContext('2d');
+    frequencyChart = new Chart(frequencyCtx, {
+        type: 'bar',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Sessions',
+                data: [],
+                backgroundColor: 'rgba(255, 107, 53, 0.8)',
+                borderColor: '#ff6b35',
+                borderWidth: 1,
+                borderRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Number of Sessions'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Exercises'
+                    },
+                    ticks: {
+                        maxRotation: 45,
+                        minRotation: 45
+                    }
+                }
+            }
+        }
+    });
+
+    // Category Chart
+    const categoryCtx = document.getElementById('categoryChart').getContext('2d');
+    categoryChart = new Chart(categoryCtx, {
+        type: 'doughnut',
+        data: {
+            labels: [],
+            datasets: [{
+                data: [],
+                backgroundColor: [
+                    '#ff6b35',
+                    '#667eea',
+                    '#5cb85c',
+                    '#f39c12',
+                    '#e74c3c',
+                    '#9b59b6',
+                    '#1abc9c',
+                    '#34495e'
+                ],
+                borderWidth: 2,
+                borderColor: '#fff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        padding: 20,
+                        usePointStyle: true
+                    }
+                }
+            }
+        }
+    });
+}
+
+async function loadFrequencyData() {
+    try {
+        const response = await fetch(`/api/exercise-frequency?days=${currentPeriod}`);
+        const data = await response.json();
+        
+        updateCharts(data);
+    } catch (error) {
+        console.error('Error loading frequency data:', error);
+        showPlaceholderData();
+    }
+}
+
+function updateCharts(data) {
+    if (data.exerciseFrequencies) {
+        // Update frequency chart
+        const top10 = data.exerciseFrequencies.slice(0, 10);
+        frequencyChart.data.labels = top10.map(ex => ex.exerciseName);
+        frequencyChart.data.datasets[0].data = top10.map(ex => ex.count);
+        frequencyChart.update();
+    }
+
+    if (data.categoryBreakdown) {
+        categoryChart.data.labels = data.categoryBreakdown.labels || [];
+        categoryChart.data.datasets[0].data = data.categoryBreakdown.values || [];
+        categoryChart.update();
+    }
+}
+
+function showPlaceholderData() {
+    // Sample data for demonstration
+    const sampleExercises = ['Bench Press', 'Squat', 'Deadlift', 'Pull-ups', 'Push-ups', 'Rows'];
+    const sampleCounts = [12, 10, 8, 15, 20, 6];
+    
+    frequencyChart.data.labels = sampleExercises;
+    frequencyChart.data.datasets[0].data = sampleCounts;
+    frequencyChart.update();
+    
+    const sampleCategories = {
+        labels: ['Strength', 'Cardio', 'Flexibility', 'Core'],
+        values: [45, 25, 15, 15]
+    };
+    
+    categoryChart.data.labels = sampleCategories.labels;
+    categoryChart.data.datasets[0].data = sampleCategories.values;
+    categoryChart.update();
+}
+</script>
+{{end}}

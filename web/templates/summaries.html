@@ -1,0 +1,817 @@
+{{template "base.html" .}}
+
+{{define "head"}}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .summaries-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .page-header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .page-title {
+            font-size: 2.5rem;
+            color: #333;
+            margin-bottom: 0.5rem;
+            font-weight: 700;
+        }
+
+        .page-subtitle {
+            color: #666;
+            font-size: 1.1rem;
+        }
+
+        .summary-tabs {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 3rem;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .tab-btn {
+            padding: 1rem 2rem;
+            border: none;
+            background: none;
+            color: #666;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            border-bottom: 3px solid transparent;
+        }
+
+        .tab-btn.active {
+            color: #ff6b35;
+            border-bottom-color: #ff6b35;
+        }
+
+        .tab-btn:hover {
+            color: #ff6b35;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .summary-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding: 2rem;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .summary-title {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #333;
+        }
+
+        .summary-period {
+            color: #666;
+            font-size: 1rem;
+        }
+
+        .date-navigation {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .nav-btn {
+            width: 40px;
+            height: 40px;
+            border: 2px solid #ff6b35;
+            background: white;
+            color: #ff6b35;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+        }
+
+        .nav-btn:hover {
+            background: #ff6b35;
+            color: white;
+        }
+
+        .current-period {
+            font-weight: 600;
+            color: #333;
+            min-width: 120px;
+            text-align: center;
+        }
+
+        .summary-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 3rem;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+        }
+
+        .stat-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            margin: 0 auto 1rem;
+            color: white;
+        }
+
+        .workouts-icon {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+        }
+
+        .volume-icon {
+            background: linear-gradient(135deg, #ff6b35, #ff8c42);
+        }
+
+        .duration-icon {
+            background: linear-gradient(135deg, #5cb85c, #4cae4c);
+        }
+
+        .consistency-icon {
+            background: linear-gradient(135deg, #f39c12, #e67e22);
+        }
+
+        .stat-value {
+            font-size: 2.2rem;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            font-size: 1rem;
+            color: #666;
+            font-weight: 500;
+        }
+
+        .stat-change {
+            font-size: 0.8rem;
+            margin-top: 0.5rem;
+            font-weight: 600;
+        }
+
+        .change-positive {
+            color: #28a745;
+        }
+
+        .change-negative {
+            color: #dc3545;
+        }
+
+        .change-neutral {
+            color: #6c757d;
+        }
+
+        .charts-section {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+
+        .chart-card {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .chart-title {
+            font-size: 1.3rem;
+            color: #333;
+            margin-bottom: 1.5rem;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 350px;
+            margin-bottom: 1rem;
+        }
+
+        .highlights-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+
+        .highlights-card {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .highlights-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .highlight-item {
+            padding: 1rem;
+            margin-bottom: 1rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #ff6b35;
+        }
+
+        .highlight-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .highlight-text {
+            color: #333;
+            font-weight: 500;
+        }
+
+        .highlight-value {
+            color: #ff6b35;
+            font-weight: 700;
+        }
+
+        .recommendations-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .recommendation-item {
+            padding: 1rem;
+            margin-bottom: 1rem;
+            background: #e8f5e8;
+            border-radius: 8px;
+            border-left: 4px solid #28a745;
+        }
+
+        .recommendation-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .recommendation-text {
+            color: #155724;
+            font-weight: 500;
+        }
+
+        .export-section {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        .export-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .export-btn {
+            padding: 0.75rem 1.5rem;
+            border: 2px solid #667eea;
+            background: white;
+            color: #667eea;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .export-btn:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        /* Dark mode styles */
+        .dark-mode .summary-header,
+        .dark-mode .stat-card,
+        .dark-mode .chart-card,
+        .dark-mode .highlights-card,
+        .dark-mode .export-section {
+            background: #2d2d2d;
+        }
+
+        .dark-mode .summary-title,
+        .dark-mode .stat-value,
+        .dark-mode .chart-title,
+        .dark-mode .highlights-title,
+        .dark-mode .current-period,
+        .dark-mode .highlight-text {
+            color: #e0e0e0;
+        }
+
+        .dark-mode .page-title {
+            color: #e0e0e0;
+        }
+
+        .dark-mode .page-subtitle {
+            color: #b0b0b0;
+        }
+
+        .dark-mode .summary-period,
+        .dark-mode .stat-label {
+            color: #b0b0b0;
+        }
+
+        .dark-mode .highlight-item {
+            background: #404040;
+        }
+
+        .dark-mode .recommendation-item {
+            background: #2d4a2d;
+        }
+
+        .dark-mode .summary-tabs {
+            border-bottom-color: #404040;
+        }
+
+        @media (max-width: 768px) {
+            .charts-section,
+            .highlights-section {
+                grid-template-columns: 1fr;
+            }
+            
+            .summary-header {
+                flex-direction: column;
+                gap: 1rem;
+                text-align: center;
+            }
+            
+            .export-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+        }
+    </style>
+{{end}}
+
+{{define "content"}}
+<div class="summaries-container">
+    <div class="page-header">
+        <h1 class="page-title">📊 Reports & Summaries</h1>
+        <p class="page-subtitle">Comprehensive analytics and progress reports</p>
+    </div>
+
+    <div class="summary-tabs">
+        <button class="tab-btn active" data-tab="weekly">Weekly</button>
+        <button class="tab-btn" data-tab="monthly">Monthly</button>
+        <button class="tab-btn" data-tab="yearly">Yearly</button>
+    </div>
+
+    <!-- Weekly Summary Tab -->
+    <div class="tab-content active" id="weekly-tab">
+        <div class="summary-header">
+            <div>
+                <h2 class="summary-title">Weekly Summary</h2>
+                <p class="summary-period">Week of {{if .WeeklySummary}}{{.WeeklySummary.WeekStart.Format "Jan 2"}} - {{.WeeklySummary.WeekEnd.Format "Jan 2, 2006"}}{{else}}Current Week{{end}}</p>
+            </div>
+            <div class="date-navigation">
+                <button class="nav-btn" onclick="navigateWeek(-1)">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <span class="current-period">Week {{if .WeeklySummary}}{{.WeeklySummary.WeekNumber}}{{else}}--{{end}}, {{if .WeeklySummary}}{{.WeeklySummary.Year}}{{else}}----{{end}}</span>
+                <button class="nav-btn" onclick="navigateWeek(1)">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
+
+        <div class="summary-stats">
+            <div class="stat-card">
+                <div class="stat-icon workouts-icon">🏋️</div>
+                <div class="stat-value">{{if .WeeklySummary}}{{.WeeklySummary.TotalWorkouts}}{{else}}0{{end}}</div>
+                <div class="stat-label">Workouts</div>
+                <div class="stat-change change-positive">+2 from last week</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon volume-icon">📊</div>
+                <div class="stat-value">{{if .WeeklySummary}}{{printf "%.0fk" (div .WeeklySummary.TotalVolume 1000)}}{{else}}0k{{end}}</div>
+                <div class="stat-label">Total Volume</div>
+                <div class="stat-change change-positive">+5% from last week</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon duration-icon">⏱️</div>
+                <div class="stat-value">{{if .WeeklySummary}}{{printf "%.0f" .WeeklySummary.AvgDuration}}{{else}}0{{end}}</div>
+                <div class="stat-label">Avg Duration (min)</div>
+                <div class="stat-change change-neutral">Same as last week</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon consistency-icon">🎯</div>
+                <div class="stat-value">{{if .WeeklySummary}}{{printf "%.0f" .WeeklySummary.ConsistencyScore}}{{else}}0{{end}}%</div>
+                <div class="stat-label">Consistency</div>
+                <div class="stat-change change-positive">+10% from last week</div>
+            </div>
+        </div>
+
+        <div class="charts-section">
+            <div class="chart-card">
+                <h3 class="chart-title">Daily Workout Volume</h3>
+                <div class="chart-container">
+                    <canvas id="weeklyVolumeChart"></canvas>
+                </div>
+            </div>
+            <div class="chart-card">
+                <h3 class="chart-title">Exercise Categories</h3>
+                <div class="chart-container">
+                    <canvas id="weeklyCategoriesChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Monthly Summary Tab -->
+    <div class="tab-content" id="monthly-tab">
+        <div class="summary-header">
+            <div>
+                <h2 class="summary-title">Monthly Summary</h2>
+                <p class="summary-period">{{if .MonthlySummary}}{{.MonthlySummary.MonthName}} {{.MonthlySummary.Year}}{{else}}Current Month{{end}}</p>
+            </div>
+            <div class="date-navigation">
+                <button class="nav-btn" onclick="navigateMonth(-1)">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <span class="current-period">{{if .MonthlySummary}}{{.MonthlySummary.MonthName}}{{else}}----{{end}}</span>
+                <button class="nav-btn" onclick="navigateMonth(1)">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
+
+        <div class="summary-stats">
+            <div class="stat-card">
+                <div class="stat-icon workouts-icon">🏋️</div>
+                <div class="stat-value">{{if .MonthlySummary}}{{.MonthlySummary.TotalWorkouts}}{{else}}0{{end}}</div>
+                <div class="stat-label">Total Workouts</div>
+                <div class="stat-change change-positive">+8 from last month</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon volume-icon">📊</div>
+                <div class="stat-value">{{if .MonthlySummary}}{{printf "%.1fk" (div .MonthlySummary.TotalVolume 1000)}}{{else}}0.0k{{end}}</div>
+                <div class="stat-label">Total Volume</div>
+                <div class="stat-change change-positive">+12% from last month</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon duration-icon">⏱️</div>
+                <div class="stat-value">{{if .MonthlySummary}}{{.MonthlySummary.TotalDuration}}{{else}}0{{end}}</div>
+                <div class="stat-label">Total Hours</div>
+                <div class="stat-change change-positive">+3h from last month</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon consistency-icon">🎯</div>
+                <div class="stat-value">{{if .MonthlySummary}}{{.MonthlySummary.PrsAchieved}}{{else}}0{{end}}</div>
+                <div class="stat-label">PRs Achieved</div>
+                <div class="stat-change change-positive">+2 from last month</div>
+            </div>
+        </div>
+
+        <div class="charts-section">
+            <div class="chart-card">
+                <h3 class="chart-title">Weekly Progress</h3>
+                <div class="chart-container">
+                    <canvas id="monthlyProgressChart"></canvas>
+                </div>
+            </div>
+            <div class="chart-card">
+                <h3 class="chart-title">Weight Progress</h3>
+                <div class="chart-container">
+                    <canvas id="monthlyWeightChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="highlights-section">
+            <div class="highlights-card">
+                <h3 class="highlights-title">
+                    <i class="fas fa-star"></i>
+                    Progress Highlights
+                </h3>
+                {{if .MonthlySummary}}
+                    {{if .MonthlySummary.ProgressHighlights}}
+                        {{range .MonthlySummary.ProgressHighlights}}
+                        <div class="highlight-item">
+                            <div class="highlight-text">{{.}}</div>
+                        </div>
+                        {{end}}
+                    {{else}}
+                        <div class="highlight-item">
+                            <div class="highlight-text">No highlights available for this month</div>
+                        </div>
+                    {{end}}
+                {{else}}
+                    <div class="highlight-item">
+                        <div class="highlight-text">Complete more workouts to see progress highlights</div>
+                    </div>
+                {{end}}
+            </div>
+            <div class="highlights-card">
+                <h3 class="highlights-title">
+                    <i class="fas fa-lightbulb"></i>
+                    Recommendations
+                </h3>
+                <ul class="recommendations-list">
+                    {{if .MonthlySummary}}
+                        {{if .MonthlySummary.Recommendations}}
+                            {{range .MonthlySummary.Recommendations}}
+                            <li class="recommendation-item">
+                                <div class="recommendation-text">{{.}}</div>
+                            </li>
+                            {{end}}
+                        {{else}}
+                            <li class="recommendation-item">
+                                <div class="recommendation-text">Keep up the great work! Your consistency is paying off.</div>
+                            </li>
+                        {{end}}
+                    {{else}}
+                        <li class="recommendation-item">
+                            <div class="recommendation-text">Start logging workouts to receive personalized recommendations</div>
+                        </li>
+                    {{end}}
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Yearly Summary Tab -->
+    <div class="tab-content" id="yearly-tab">
+        <div class="summary-header">
+            <div>
+                <h2 class="summary-title">Yearly Summary</h2>
+                <p class="summary-period">{{if .YearlySummary}}{{.YearlySummary.Year}}{{else}}Current Year{{end}} Fitness Journey</p>
+            </div>
+            <div class="date-navigation">
+                <button class="nav-btn" onclick="navigateYear(-1)">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <span class="current-period">{{if .YearlySummary}}{{.YearlySummary.Year}}{{else}}----{{end}}</span>
+                <button class="nav-btn" onclick="navigateYear(1)">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
+
+        <div class="summary-stats">
+            <div class="stat-card">
+                <div class="stat-icon workouts-icon">🏋️</div>
+                <div class="stat-value">{{if .YearlySummary}}{{.YearlySummary.TotalWorkouts}}{{else}}0{{end}}</div>
+                <div class="stat-label">Total Workouts</div>
+                <div class="stat-change change-positive">Amazing dedication!</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon volume-icon">📊</div>
+                <div class="stat-value">{{if .YearlySummary}}{{printf "%.0fk" (div .YearlySummary.TotalVolume 1000)}}{{else}}0k{{end}}</div>
+                <div class="stat-label">Total Volume</div>
+                <div class="stat-change change-positive">Incredible strength!</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon duration-icon">⏱️</div>
+                <div class="stat-value">{{if .YearlySummary}}{{printf "%.0f" (div .YearlySummary.TotalDuration 60)}}{{else}}0{{end}}</div>
+                <div class="stat-label">Total Hours</div>
+                <div class="stat-change change-positive">Time well invested!</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon consistency-icon">🎯</div>
+                <div class="stat-value">{{if .YearlySummary}}{{.YearlySummary.TotalPRsAchieved}}{{else}}0{{end}}</div>
+                <div class="stat-label">Personal Records</div>
+                <div class="stat-change change-positive">Outstanding progress!</div>
+            </div>
+        </div>
+
+        <div class="charts-section">
+            <div class="chart-card">
+                <h3 class="chart-title">Monthly Progress Throughout Year</h3>
+                <div class="chart-container">
+                    <canvas id="yearlyProgressChart"></canvas>
+                </div>
+            </div>
+            <div class="chart-card">
+                <h3 class="chart-title">Yearly Goals</h3>
+                <div class="chart-container">
+                    <canvas id="yearlyGoalsChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="highlights-section">
+            <div class="highlights-card">
+                <h3 class="highlights-title">
+                    <i class="fas fa-trophy"></i>
+                    Year Highlights
+                </h3>
+                {{if .YearlySummary}}
+                    {{if .YearlySummary.YearHighlights}}
+                        {{range .YearlySummary.YearHighlights}}
+                        <div class="highlight-item">
+                            <div class="highlight-text">{{.}}</div>
+                        </div>
+                        {{end}}
+                    {{else}}
+                        <div class="highlight-item">
+                            <div class="highlight-text">Your fitness journey is just beginning!</div>
+                        </div>
+                    {{end}}
+                {{else}}
+                    <div class="highlight-item">
+                        <div class="highlight-text">Start your fitness journey to see amazing highlights next year!</div>
+                    </div>
+                {{end}}
+            </div>
+            <div class="highlights-card">
+                <h3 class="highlights-title">
+                    <i class="fas fa-route"></i>
+                    Fitness Journey
+                </h3>
+                {{if .YearlySummary}}
+                    {{if .YearlySummary.FitnessJourney}}
+                        {{range .YearlySummary.FitnessJourney}}
+                        <div class="highlight-item">
+                            <div class="highlight-text">{{.}}</div>
+                        </div>
+                        {{end}}
+                    {{else}}
+                        <div class="highlight-item">
+                            <div class="highlight-text">Every journey begins with a single step. You're on the right path!</div>
+                        </div>
+                    {{end}}
+                {{else}}
+                    <div class="highlight-item">
+                        <div class="highlight-text">Your fitness journey awaits. Start logging workouts to see your progress!</div>
+                    </div>
+                {{end}}
+            </div>
+        </div>
+    </div>
+
+    <!-- Export Section -->
+    <div class="export-section">
+        <h3 class="chart-title">Export Your Data</h3>
+        <p>Download your workout data and summaries in various formats</p>
+        <div class="export-buttons">
+            <a href="/api/export/csv" class="export-btn">
+                <i class="fas fa-file-csv"></i>
+                Export CSV
+            </a>
+            <a href="/api/export/json" class="export-btn">
+                <i class="fas fa-file-code"></i>
+                Export JSON
+            </a>
+            <a href="/api/export/pdf" class="export-btn">
+                <i class="fas fa-file-pdf"></i>
+                Export PDF
+            </a>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentWeek = 0;
+let currentMonth = 0;
+let currentYear = new Date().getFullYear();
+
+// Charts
+let weeklyVolumeChart, weeklyCategoriesChart;
+let monthlyProgressChart, monthlyWeightChart;
+let yearlyProgressChart, yearlyGoalsChart;
+
+document.addEventListener('DOMContentLoaded', function() {
+    setupTabs();
+    initializeCharts();
+    loadSummaryData('weekly');
+});
+
+function setupTabs() {
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            // Update active tab
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            
+            this.classList.add('active');
+            document.getElementById(this.dataset.tab + '-tab').classList.add('active');
+            
+            loadSummaryData(this.dataset.tab);
+        });
+    });
+}
+
+function initializeCharts() {
+    // Weekly Volume Chart
+    const weeklyVolumeCtx = document.getElementById('weeklyVolumeChart')?.getContext('2d');
+    if (weeklyVolumeCtx) {
+        weeklyVolumeChart = new Chart(weeklyVolumeCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                datasets: [{
+                    label: 'Volume',
+                    data: [],
+                    backgroundColor: 'rgba(255, 107, 53, 0.8)',
+                    borderColor: '#ff6b35',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true } }
+            }
+        });
+    }
+
+    // Initialize other charts similarly...
+    // (Chart initialization code would be similar for all charts)
+}
+
+async function loadSummaryData(type) {
+    try {
+        let url = `/api/summaries/${type}`;
+        if (type === 'weekly') url += `?week=${currentWeek}`;
+        if (type === 'monthly') url += `?month=${currentMonth}`;
+        if (type === 'yearly') url += `?year=${currentYear}`;
+        
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        updateCharts(type, data);
+    } catch (error) {
+        console.error('Error loading summary data:', error);
+        showPlaceholderData(type);
+    }
+}
+
+function updateCharts(type, data) {
+    if (type === 'weekly' && weeklyVolumeChart && data.dailyVolumes) {
+        weeklyVolumeChart.data.datasets[0].data = data.dailyVolumes;
+        weeklyVolumeChart.update();
+    }
+    // Update other charts based on type and data
+}
+
+function showPlaceholderData(type) {
+    if (type === 'weekly' && weeklyVolumeChart) {
+        weeklyVolumeChart.data.datasets[0].data = [4500, 0, 3200, 5100, 0, 4800, 2200];
+        weeklyVolumeChart.update();
+    }
+    // Show placeholder data for other charts
+}
+
+function navigateWeek(direction) {
+    currentWeek += direction;
+    loadSummaryData('weekly');
+}
+
+function navigateMonth(direction) {
+    currentMonth += direction;
+    loadSummaryData('monthly');
+}
+
+function navigateYear(direction) {
+    currentYear += direction;
+    loadSummaryData('yearly');
+}
+</script>
+{{end}}

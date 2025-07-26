@@ -46,6 +46,16 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a href="/analytics/personal-records" class="nav-link {{if eq .CurrentPath "/analytics/personal-records"}}active{{end}}">
+                        <i class="fas fa-trophy"></i> Records
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/analytics/strength-progress" class="nav-link {{if eq .CurrentPath "/analytics/strength-progress"}}active{{end}}">
+                        <i class="fas fa-chart-line"></i> Progress
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a href="/exercise-library" class="nav-link {{if eq .CurrentPath "/exercise-library"}}active{{end}}">
                         <i class="fas fa-book"></i> Exercises
                     </a>

@@ -1,0 +1,524 @@
+{{template "base.html" .}}
+
+{{define "head"}}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .progress-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .page-header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .page-title {
+            font-size: 2.5rem;
+            color: #333;
+            margin-bottom: 0.5rem;
+            font-weight: 700;
+        }
+
+        .page-subtitle {
+            color: #666;
+            font-size: 1.1rem;
+        }
+
+        .exercise-selector {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 2rem;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .exercise-btn {
+            padding: 0.75rem 1.5rem;
+            border: 2px solid #ff6b35;
+            background: white;
+            color: #ff6b35;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .exercise-btn.active,
+        .exercise-btn:hover {
+            background: #ff6b35;
+            color: white;
+        }
+
+        .time-range-selector {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 3rem;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .time-btn {
+            padding: 0.5rem 1rem;
+            border: 1px solid #667eea;
+            background: white;
+            color: #667eea;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+
+        .time-btn.active,
+        .time-btn:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        .progress-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+
+        .chart-card {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .chart-title {
+            font-size: 1.5rem;
+            color: #333;
+            margin-bottom: 1.5rem;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 400px;
+            margin-bottom: 1rem;
+        }
+
+        .stats-card {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border-radius: 8px;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        .trend-indicator {
+            display: inline-flex;
+            align-items: center;
+            margin-left: 0.5rem;
+            font-size: 0.8rem;
+        }
+
+        .trend-up {
+            color: #28a745;
+        }
+
+        .trend-down {
+            color: #dc3545;
+        }
+
+        .trend-stable {
+            color: #ffc107;
+        }
+
+        .milestones-section {
+            margin-top: 3rem;
+        }
+
+        .milestones-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+        }
+
+        .milestone-card {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            border-left: 4px solid #ff6b35;
+        }
+
+        .milestone-title {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 0.5rem;
+        }
+
+        .milestone-date {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .milestone-value {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #ff6b35;
+            margin-top: 0.5rem;
+        }
+
+        .loading-spinner {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 400px;
+            color: #666;
+        }
+
+        /* Dark mode styles */
+        .dark-mode .chart-card,
+        .dark-mode .stats-card,
+        .dark-mode .milestone-card {
+            background: #2d2d2d;
+        }
+
+        .dark-mode .chart-title,
+        .dark-mode .milestone-title {
+            color: #e0e0e0;
+        }
+
+        .dark-mode .page-title {
+            color: #e0e0e0;
+        }
+
+        .dark-mode .page-subtitle {
+            color: #b0b0b0;
+        }
+
+        .dark-mode .milestone-date {
+            color: #b0b0b0;
+        }
+
+        @media (max-width: 768px) {
+            .progress-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .exercise-selector,
+            .time-range-selector {
+                justify-content: flex-start;
+                overflow-x: auto;
+                padding-bottom: 0.5rem;
+            }
+        }
+    </style>
+{{end}}
+
+{{define "content"}}
+<div class="progress-container">
+    <div class="page-header">
+        <h1 class="page-title">📈 Strength Progress</h1>
+        <p class="page-subtitle">Track your strength progression over time</p>
+    </div>
+
+    <div class="exercise-selector">
+        <button class="exercise-btn active" data-exercise="all">All Exercises</button>
+        <button class="exercise-btn" data-exercise="bench-press">Bench Press</button>
+        <button class="exercise-btn" data-exercise="squat">Squat</button>
+        <button class="exercise-btn" data-exercise="deadlift">Deadlift</button>
+        <button class="exercise-btn" data-exercise="overhead-press">Overhead Press</button>
+        <button class="exercise-btn" data-exercise="pull-ups">Pull-ups</button>
+    </div>
+
+    <div class="time-range-selector">
+        <button class="time-btn" data-range="30">30 Days</button>
+        <button class="time-btn" data-range="90">3 Months</button>
+        <button class="time-btn active" data-range="180">6 Months</button>
+        <button class="time-btn" data-range="365">1 Year</button>
+    </div>
+
+    <div class="progress-grid">
+        <div class="chart-card">
+            <h3 class="chart-title">Strength Progression</h3>
+            <div class="chart-container">
+                <canvas id="strengthChart"></canvas>
+            </div>
+        </div>
+
+        <div class="stats-card">
+            <h3 class="chart-title">Current Stats</h3>
+            <div class="stat-item">
+                <div class="stat-value" id="current-max">
+                    {{if .CurrentExercise}}{{.CurrentExercise.MaxWeight}} lbs{{else}}-- lbs{{end}}
+                </div>
+                <div class="stat-label">Current Max</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="progress-trend">
+                    {{if .ProgressTrend}}
+                        {{.ProgressTrend.ChangePercent}}%
+                        <span class="trend-indicator trend-{{.ProgressTrend.Direction}}">
+                            {{if eq .ProgressTrend.Direction "up"}}↗{{else if eq .ProgressTrend.Direction "down"}}↘{{else}}→{{end}}
+                        </span>
+                    {{else}}
+                        --%
+                    {{end}}
+                </div>
+                <div class="stat-label">Progress Trend</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="total-sessions">
+                    {{if .TotalSessions}}{{.TotalSessions}}{{else}}0{{end}}
+                </div>
+                <div class="stat-label">Total Sessions</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Volume Progress Chart -->
+    <div class="chart-card">
+        <h3 class="chart-title">Volume Progression</h3>
+        <div class="chart-container">
+            <canvas id="volumeChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Milestones Section -->
+    <div class="milestones-section">
+        <h2 class="chart-title">Recent Milestones</h2>
+        <div class="milestones-grid">
+            {{if .RecentMilestones}}
+                {{range .RecentMilestones}}
+                <div class="milestone-card">
+                    <div class="milestone-title">{{.Description}}</div>
+                    <div class="milestone-date">{{.AchievedAt.Format "Jan 2, 2006"}}</div>
+                    <div class="milestone-value">{{.Value}} {{.Unit}}</div>
+                </div>
+                {{end}}
+            {{else}}
+                <div class="milestone-card">
+                    <div class="milestone-title">No milestones yet</div>
+                    <div class="milestone-date">Keep working out to achieve your first milestone!</div>
+                </div>
+            {{end}}
+        </div>
+    </div>
+</div>
+
+<script>
+let strengthChart;
+let volumeChart;
+let currentExercise = 'all';
+let currentTimeRange = 180;
+
+document.addEventListener('DOMContentLoaded', function() {
+    initializeCharts();
+    setupEventListeners();
+    loadProgressData();
+});
+
+function setupEventListeners() {
+    // Exercise selector buttons
+    document.querySelectorAll('.exercise-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.exercise-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            currentExercise = this.dataset.exercise;
+            loadProgressData();
+        });
+    });
+
+    // Time range selector buttons
+    document.querySelectorAll('.time-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            currentTimeRange = parseInt(this.dataset.range);
+            loadProgressData();
+        });
+    });
+}
+
+function initializeCharts() {
+    // Strength Chart
+    const strengthCtx = document.getElementById('strengthChart').getContext('2d');
+    strengthChart = new Chart(strengthCtx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Max Weight (lbs)',
+                data: [],
+                borderColor: '#ff6b35',
+                backgroundColor: 'rgba(255, 107, 53, 0.1)',
+                borderWidth: 3,
+                fill: true,
+                tension: 0.4,
+                pointBackgroundColor: '#ff6b35',
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2,
+                pointRadius: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    title: {
+                        display: true,
+                        text: 'Weight (lbs)'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Date'
+                    }
+                }
+            }
+        }
+    });
+
+    // Volume Chart
+    const volumeCtx = document.getElementById('volumeChart').getContext('2d');
+    volumeChart = new Chart(volumeCtx, {
+        type: 'bar',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Total Volume (lbs)',
+                data: [],
+                backgroundColor: 'rgba(102, 126, 234, 0.8)',
+                borderColor: '#667eea',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Volume (lbs)'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Date'
+                    }
+                }
+            }
+        }
+    });
+}
+
+async function loadProgressData() {
+    try {
+        const response = await fetch(`/api/strength-progress?exercise=${currentExercise}&days=${currentTimeRange}`);
+        const data = await response.json();
+        
+        updateCharts(data);
+        updateStats(data);
+    } catch (error) {
+        console.error('Error loading progress data:', error);
+        // Show placeholder data or error message
+        showPlaceholderData();
+    }
+}
+
+function updateCharts(data) {
+    if (data.strengthData) {
+        strengthChart.data.labels = data.strengthData.dates || [];
+        strengthChart.data.datasets[0].data = data.strengthData.weights || [];
+        strengthChart.update();
+    }
+
+    if (data.volumeData) {
+        volumeChart.data.labels = data.volumeData.dates || [];
+        volumeChart.data.datasets[0].data = data.volumeData.volumes || [];
+        volumeChart.update();
+    }
+}
+
+function updateStats(data) {
+    if (data.currentMax) {
+        document.getElementById('current-max').textContent = data.currentMax + ' lbs';
+    }
+    
+    if (data.progressTrend) {
+        const trendElement = document.getElementById('progress-trend');
+        const changePercent = data.progressTrend.changePercent || 0;
+        const direction = data.progressTrend.direction || 'stable';
+        
+        let arrow = '→';
+        let trendClass = 'trend-stable';
+        
+        if (direction === 'up') {
+            arrow = '↗';
+            trendClass = 'trend-up';
+        } else if (direction === 'down') {
+            arrow = '↘';
+            trendClass = 'trend-down';
+        }
+        
+        trendElement.innerHTML = `${changePercent}% <span class="trend-indicator ${trendClass}">${arrow}</span>`;
+    }
+    
+    if (data.totalSessions) {
+        document.getElementById('total-sessions').textContent = data.totalSessions;
+    }
+}
+
+function showPlaceholderData() {
+    // Sample data for demonstration
+    const sampleStrengthData = {
+        dates: ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5', 'Week 6'],
+        weights: [135, 140, 145, 145, 150, 155]
+    };
+    
+    const sampleVolumeData = {
+        dates: ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5', 'Week 6'],
+        volumes: [4050, 4200, 4350, 4350, 4500, 4650]
+    };
+    
+    strengthChart.data.labels = sampleStrengthData.dates;
+    strengthChart.data.datasets[0].data = sampleStrengthData.weights;
+    strengthChart.update();
+    
+    volumeChart.data.labels = sampleVolumeData.dates;
+    volumeChart.data.datasets[0].data = sampleVolumeData.volumes;
+    volumeChart.update();
+}
+</script>
+{{end}}

@@ -780,6 +780,418 @@ type TemplateSharing struct {
 	CreatedAt    time.Time `json:"created_at" db:"created_at"`
 }
 
+// ========== IMPORT/EXPORT MODELS ==========
+
+// ExportJob represents an export job for user data
+type ExportJob struct {
+	ID            int       `json:"id" db:"id"`
+	UserID        int       `json:"user_id" db:"user_id"`
+	ExportType    string    `json:"export_type" db:"export_type"` // csv, json, backup
+	DataTypes     []string  `json:"data_types" db:"data_types"` // Types of data to export
+	Status        string    `json:"status" db:"status"` // pending, processing, completed, failed
+	FilePath      string    `json:"file_path" db:"file_path"`
+	FileSize      int       `json:"file_size" db:"file_size"`
+	DownloadCount int       `json:"download_count" db:"download_count"`
+	StartedAt     *time.Time `json:"started_at" db:"started_at"`
+	CompletedAt   *time.Time `json:"completed_at" db:"completed_at"`
+	ErrorMessage  *string   `json:"error_message" db:"error_message"`
+	ExpiresAt     *time.Time `json:"expires_at" db:"expires_at"`
+	CreatedAt     time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at" db:"updated_at"`
+}
+
+// ImportJob represents an import job for user data
+type ImportJob struct {
+	ID                int       `json:"id" db:"id"`
+	UserID            int       `json:"user_id" db:"user_id"`
+	ImportType        string    `json:"import_type" db:"import_type"` // csv, json, myfitnesspal, strava, etc.
+	DataTypes         []string  `json:"data_types" db:"data_types"` // JSON array of data types to import
+	Status            string    `json:"status" db:"status"` // pending, processing, completed, failed, validation_error
+	FilePath          string    `json:"file_path" db:"file_path"`
+	FileSize          int       `json:"file_size" db:"file_size"`
+	TotalRecords      int       `json:"total_records" db:"total_records"`
+	ProcessedRecords  int       `json:"processed_records" db:"processed_records"`
+	SuccessfulRecords int       `json:"successful_records" db:"successful_records"`
+	FailedRecords     int       `json:"failed_records" db:"failed_records"`
+	StartedAt         *time.Time `json:"started_at" db:"started_at"`
+	CompletedAt       *time.Time `json:"completed_at" db:"completed_at"`
+	ErrorMessage      *string   `json:"error_message" db:"error_message"`
+	CreatedAt         time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt         time.Time `json:"updated_at" db:"updated_at"`
+}
+
+// DataSyncConfig represents configuration for data synchronization with external providers
+type DataSyncConfig struct {
+	ID            int       `json:"id" db:"id"`
+	UserID        int       `json:"user_id" db:"user_id"`
+	Provider      string    `json:"provider" db:"provider"` // strava, myfitnesspal, garmin, fitbit, etc.
+	AccessToken   string    `json:"access_token" db:"access_token"`
+	RefreshToken  *string   `json:"refresh_token" db:"refresh_token"`
+	TokenExpiresAt *time.Time `json:"token_expires_at" db:"token_expires_at"`
+	SyncEnabled   bool      `json:"sync_enabled" db:"sync_enabled"`
+	LastSyncAt    *time.Time `json:"last_sync_at" db:"last_sync_at"`
+	SyncFrequency string    `json:"sync_frequency" db:"sync_frequency"` // manual, hourly, daily, weekly
+	DataTypes     []string  `json:"data_types" db:"data_types"`
+	SyncOptions   JSONValue `json:"sync_options" db:"sync_options"` // JSON object with sync options
+	IsActive      bool      `json:"is_active" db:"is_active"`
+	CreatedAt     time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at" db:"updated_at"`
+}
+
+// SyncLog represents a log of a data sync operation
+type SyncLog struct {
+	ID               int       `json:"id" db:"id"`
+	UserID           int       `json:"user_id" db:"user_id"`
+	SyncConfigID     int       `json:"sync_config_id" db:"sync_config_id"`
+	SyncType         string    `json:"sync_type" db:"sync_type"` // import, export
+	Status           string    `json:"status" db:"status"` // success, partial, failed
+	RecordsProcessed int       `json:"records_processed" db:"records_processed"`
+	RecordsSuccessful int      `json:"records_successful" db:"records_successful"`
+	RecordsFailed    int       `json:"records_failed" db:"records_failed"`
+	StartTime        time.Time `json:"start_time" db:"start_time"`
+	EndTime          *time.Time `json:"end_time" db:"end_time"`
+	ErrorDetails     *string   `json:"error_details" db:"error_details"`
+	SyncSummary      JSONValue `json:"sync_summary" db:"sync_summary"` // JSON object with sync summary
+	CreatedAt        time.Time `json:"created_at" db:"created_at"`
+}
+
+// BackupConfig represents configuration for data backup
+type BackupConfig struct {
+	ID                  int       `json:"id" db:"id"`
+	UserID              int       `json:"user_id" db:"user_id"`
+	BackupFrequency     string    `json:"backup_frequency" db:"backup_frequency"` // manual, daily, weekly, monthly
+	IncludeWorkouts     bool      `json:"include_workouts" db:"include_workouts"`
+	IncludeNutrition    bool      `json:"include_nutrition" db:"include_nutrition"`
+	IncludeBodyMetrics  bool      `json:"include_body_metrics" db:"include_body_metrics"`
+	IncludeTemplates    bool      `json:"include_templates" db:"include_templates"`
+	IncludeSettings     bool      `json:"include_settings" db:"include_settings"`
+	IncludeMedia        bool      `json:"include_media" db:"include_media"`
+	CompressionEnabled  bool      `json:"compression_enabled" db:"compression_enabled"`
+	EncryptionEnabled   bool      `json:"encryption_enabled" db:"encryption_enabled"`
+	RetentionDays       int       `json:"retention_days" db:"retention_days"`
+	LastBackupAt        *time.Time `json:"last_backup_at" db:"last_backup_at"`
+	NextBackupAt        *time.Time `json:"next_backup_at" db:"next_backup_at"`
+	IsActive            bool      `json:"is_active" db:"is_active"`
+	CreatedAt           time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt           time.Time `json:"updated_at" db:"updated_at"`
+}
+
+// FileUpload represents a file uploaded by a user
+type FileUpload struct {
+	ID               int       `json:"id" db:"id"`
+	UserID           int       `json:"user_id" db:"user_id"`
+	Filename         string    `json:"filename" db:"filename"`
+	OriginalFilename string    `json:"original_filename" db:"original_filename"`
+	FilePath         string    `json:"file_path" db:"file_path"`
+	FileSize         int       `json:"file_size" db:"file_size"`
+	MimeType         string    `json:"mime_type" db:"mime_type"`
+	FileHash         string    `json:"file_hash" db:"file_hash"`
+	UploadType       string    `json:"upload_type" db:"upload_type"` // import, profile_picture, etc.
+	Status           string    `json:"status" db:"status"` // uploaded, processing, processed, deleted
+	ProcessedAt      *time.Time `json:"processed_at" db:"processed_at"`
+	DeletedAt        *time.Time `json:"deleted_at" db:"deleted_at"`
+	CreatedAt        time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at" db:"updated_at"`
+}
+
+// Request models for import/export operations
+type ExportDataRequest struct {
+	DataTypes    []string `json:"data_types"`
+	ExportType   string   `json:"export_type"` // csv, json, backup
+	ExportOptions JSONValue `json:"export_options"`
+}
+
+type ImportDataRequest struct {
+	FilePath    string   `json:"file_path"`
+	ImportType  string   `json:"import_type"`
+	DataTypes   []string `json:"data_types"`
+	ImportOptions JSONValue `json:"import_options"`
+}
+
+type APIIntegrationConfig struct {
+	Provider    string `json:"provider"`
+	AccessToken string `json:"access_token"`
+	SyncOptions JSONValue `json:"sync_options"`
+}
+
+type JSONValue map[string]interface{}
+
+// Request models for template and program management
+
+// Achievement represents a user's achievement
+type Achievement struct {
+	ID           int       `json:"id" db:"id"`
+	UserID       int       `json:"user_id" db:"user_id"`
+	Type         string    `json:"type" db:"type"` // strength, consistency, milestone, etc.
+	Name         string    `json:"name" db:"name"`
+	Description  string    `json:"description" db:"description"`
+	BadgeURL     string    `json:"badge_url" db:"badge_url"`
+	AchievedAt   time.Time `json:"achieved_at" db:"achieved_at"`
+	CreatedAt    time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at" db:"updated_at"`
+}
+
+// Badge represents a badge that can be awarded
+type Badge struct {
+	ID          int       `json:"id" db:"id"`
+	Name        string    `json:"name" db:"name"`
+	Description string    `json:"description" db:"description"`
+	BadgeURL    string    `json:"badge_url" db:"badge_url"`
+	Criteria    string    `json:"criteria" db:"criteria"`
+	CreatedAt   time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at" db:"updated_at"`
+}
+
+// Streak represents a user's streak in workouts or nutrition
+type Streak struct {
+	ID         int       `json:"id" db:"id"`
+	UserID     int       `json:"user_id" db:"user_id"`
+	Type       string    `json:"type" db:"type"` // workout, nutrition
+	StartDate  time.Time `json:"start_date" db:"start_date"`
+	EndDate    *time.Time `json:"end_date" db:"end_date"`
+	Count      int       `json:"count" db:"count"`
+	CreatedAt  time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at" db:"updated_at"`
+}
+
+// Points represent points a user earns
+type Points struct {
+	ID          int       `json:"id" db:"id"`
+	UserID      int       `json:"user_id" db:"user_id"`
+	Type        string    `json:"type" db:"type"` // workout, nutrition, achievement
+	Value       int       `json:"value" db:"value"`
+	Description string    `json:"description" db:"description"`
+	CreatedAt   time.Time `json:"created_at" db:"created_at"`
+}
+
+// Challenge represents a fitness challenge
+type Challenge struct {
+	ID           int       `json:"id" db:"id"`
+	Name         string    `json:"name" db:"name"`
+	Description  string    `json:"description" db:"description"`
+	StartDate    time.Time `json:"start_date" db:"start_date"`
+	EndDate      time.Time `json:"end_date" db:"end_date"`
+	GoalType     string    `json:"goal_type" db:"goal_type"` // steps, streak, workout, etc.
+	GoalValue    int       `json:"goal_value" db:"goal_value"`
+	RewardPoints int       `json:"reward_points" db:"reward_points"`
+	BadgeID      *int      `json:"badge_id" db:"badge_id"`
+	CreatedAt    time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at" db:"updated_at"`
+}
+
+// UserChallenge represents a user's progress in a challenge
+type UserChallenge struct {
+	ID           int       `json:"id" db:"id"`
+	UserID       int       `json:"user_id" db:"user_id"`
+	ChallengeID  int       `json:"challenge_id" db:"challenge_id"`
+	Progress     int       `json:"progress" db:"progress"`
+	Status       string    `json:"status" db:"status"` // ongoing, completed, failed
+	CompletedAt  *time.Time `json:"completed_at" db:"completed_at"`
+	CreatedAt    time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at" db:"updated_at"`
+}
+
+// Request models for challenges and achievements
+type CompleteChallengeRequest struct {
+	ChallengeID int    `json:"challenge_id" validate:"required"`
+	Status      string `json:"status" validate:"required"` // completed, failed
+}
+
+// ScheduledWorkout represents a workout scheduled for a specific date/time
+type ScheduledWorkout struct {
+	ID                int              `json:"id" db:"id"`
+	UserID            int              `json:"user_id" db:"user_id"`
+	TemplateID        *int             `json:"template_id" db:"template_id"`
+	Title             string           `json:"title" db:"title"`
+	Description       string           `json:"description" db:"description"`
+	ScheduledDate     time.Time        `json:"scheduled_date" db:"scheduled_date"`
+	ScheduledTime     *string          `json:"scheduled_time" db:"scheduled_time"` // Format: HH:MM
+	EstimatedDuration int              `json:"estimated_duration" db:"estimated_duration"` // minutes
+	Status            string           `json:"status" db:"status"` // scheduled, completed, skipped, cancelled
+	WorkoutID         *int             `json:"workout_id" db:"workout_id"`
+	ReminderSent      bool             `json:"reminder_sent" db:"reminder_sent"`
+	Notes             string           `json:"notes" db:"notes"`
+	CreatedAt         time.Time        `json:"created_at" db:"created_at"`
+	UpdatedAt         time.Time        `json:"updated_at" db:"updated_at"`
+	// Related objects
+	Template          *WorkoutTemplate `json:"template,omitempty"`
+	Workout           *Workout         `json:"workout,omitempty"`
+	Reminders         []WorkoutReminder `json:"reminders,omitempty"`
+}
+
+// WorkoutReminder represents a reminder for a scheduled workout
+type WorkoutReminder struct {
+	ID                 int       `json:"id" db:"id"`
+	UserID             int       `json:"user_id" db:"user_id"`
+	ScheduledWorkoutID int       `json:"scheduled_workout_id" db:"scheduled_workout_id"`
+	ReminderType       string    `json:"reminder_type" db:"reminder_type"` // email, push, sms
+	Message            string    `json:"message" db:"message"`
+	ScheduledFor       time.Time `json:"scheduled_for" db:"scheduled_for"`
+	Status             string    `json:"status" db:"status"` // pending, sent, failed, cancelled
+	SentAt             *time.Time `json:"sent_at" db:"sent_at"`
+	ErrorMessage       *string   `json:"error_message" db:"error_message"`
+	CreatedAt          time.Time `json:"created_at" db:"created_at"`
+}
+
+// RestDayRecommendation represents an AI recommendation for rest days
+type RestDayRecommendation struct {
+	ID                 int       `json:"id" db:"id"`
+	UserID             int       `json:"user_id" db:"user_id"`
+	RecommendedDate    time.Time `json:"recommended_date" db:"recommended_date"`
+	Reason             string    `json:"reason" db:"reason"` // high_volume, consecutive_days, muscle_group_fatigue
+	IntensityScore     float64   `json:"intensity_score" db:"intensity_score"` // 0-10 scale
+	VolumeLoad         float64   `json:"volume_load" db:"volume_load"` // Total volume from recent workouts
+	ConsecutiveDays    int       `json:"consecutive_days" db:"consecutive_days"`
+	MuscleGroupsWorked string    `json:"muscle_groups_worked" db:"muscle_groups_worked"` // JSON array
+	Status             string    `json:"status" db:"status"` // suggested, accepted, ignored, overridden
+	UserResponse       *string   `json:"user_response" db:"user_response"`
+	CreatedAt          time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt          time.Time `json:"updated_at" db:"updated_at"`
+}
+
+// DeloadRecommendation represents an AI recommendation for deload weeks
+type DeloadRecommendation struct {
+	ID                        int        `json:"id" db:"id"`
+	UserID                    int        `json:"user_id" db:"user_id"`
+	RecommendedStartDate      time.Time  `json:"recommended_start_date" db:"recommended_start_date"`
+	RecommendedEndDate        time.Time  `json:"recommended_end_date" db:"recommended_end_date"`
+	Reason                    string     `json:"reason" db:"reason"` // fatigue_accumulation, plateau, overreaching, scheduled
+	VolumeReductionPercent    int        `json:"volume_reduction_percent" db:"volume_reduction_percent"`
+	IntensityReductionPercent int        `json:"intensity_reduction_percent" db:"intensity_reduction_percent"`
+	TriggerMetrics            string     `json:"trigger_metrics" db:"trigger_metrics"` // JSON object
+	Status                    string     `json:"status" db:"status"` // suggested, accepted, ignored, active, completed
+	UserResponse              *string    `json:"user_response" db:"user_response"`
+	StartedAt                 *time.Time `json:"started_at" db:"started_at"`
+	CompletedAt               *time.Time `json:"completed_at" db:"completed_at"`
+	CreatedAt                 time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt                 time.Time  `json:"updated_at" db:"updated_at"`
+}
+
+// WorkoutCalendarEvent represents an event in the workout calendar
+type WorkoutCalendarEvent struct {
+	ID                 int       `json:"id" db:"id"`
+	UserID             int       `json:"user_id" db:"user_id"`
+	ScheduledWorkoutID *int      `json:"scheduled_workout_id" db:"scheduled_workout_id"`
+	RestDayID          *int      `json:"rest_day_id" db:"rest_day_id"`
+	DeloadID           *int      `json:"deload_id" db:"deload_id"`
+	EventType          string    `json:"event_type" db:"event_type"` // workout, rest_day, deload
+	Title              string    `json:"title" db:"title"`
+	Description        string    `json:"description" db:"description"`
+	StartDate          time.Time `json:"start_date" db:"start_date"`
+	EndDate            *time.Time `json:"end_date" db:"end_date"`
+	AllDay             bool      `json:"all_day" db:"all_day"`
+	Color              string    `json:"color" db:"color"`
+	IsRecurring        bool      `json:"is_recurring" db:"is_recurring"`
+	RecurrencePattern  *string   `json:"recurrence_pattern" db:"recurrence_pattern"` // JSON object
+	CreatedAt          time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt          time.Time `json:"updated_at" db:"updated_at"`
+}
+
+// Request models for scheduling operations
+type CreateScheduledWorkoutRequest struct {
+	TemplateID        *int   `json:"template_id"`
+	Title             string `json:"title" validate:"required"`
+	Description       string `json:"description"`
+	ScheduledDate     string `json:"scheduled_date" validate:"required"` // YYYY-MM-DD
+	ScheduledTime     string `json:"scheduled_time"` // HH:MM
+	EstimatedDuration int    `json:"estimated_duration"`
+	Notes             string `json:"notes"`
+}
+
+type UpdateScheduledWorkoutRequest struct {
+	Title             string `json:"title" validate:"required"`
+	Description       string `json:"description"`
+	ScheduledDate     string `json:"scheduled_date" validate:"required"`
+	ScheduledTime     string `json:"scheduled_time"`
+	EstimatedDuration int    `json:"estimated_duration"`
+	Status            string `json:"status"`
+	Notes             string `json:"notes"`
+}
+
+type CreateReminderRequest struct {
+	ReminderType    string `json:"reminder_type" validate:"required"` // email, push, sms
+	Message         string `json:"message" validate:"required"`
+	MinutesBefore   int    `json:"minutes_before" validate:"required"` // Minutes before workout
+}
+
+type RestDayResponseRequest struct {
+	Status       string `json:"status" validate:"required"` // accepted, ignored, overridden
+	UserResponse string `json:"user_response"`
+}
+
+type DeloadResponseRequest struct {
+	Status       string `json:"status" validate:"required"` // accepted, ignored, overridden
+	UserResponse string `json:"user_response"`
+}
+
+// Calendar view models
+type CalendarView struct {
+	StartDate time.Time               `json:"start_date"`
+	EndDate   time.Time               `json:"end_date"`
+	Events    []WorkoutCalendarEvent  `json:"events"`
+	Workouts  []ScheduledWorkout      `json:"workouts"`
+	RestDays  []RestDayRecommendation `json:"rest_days"`
+	Deloads   []DeloadRecommendation  `json:"deloads"`
+}
+
+type MonthlyCalendarView struct {
+	Year   int                     `json:"year"`
+	Month  int                     `json:"month"`
+	Days   []CalendarDay           `json:"days"`
+	Events []WorkoutCalendarEvent `json:"events"`
+}
+
+type CalendarDay struct {
+	Date            time.Time             `json:"date"`
+	IsCurrentMonth  bool                  `json:"is_current_month"`
+	IsToday         bool                  `json:"is_today"`
+	Workouts        []ScheduledWorkout    `json:"workouts"`
+	RestDay         *RestDayRecommendation `json:"rest_day,omitempty"`
+	Deload          *DeloadRecommendation  `json:"deload,omitempty"`
+	WorkoutCount    int                   `json:"workout_count"`
+}
+
+// Analytics for planning
+type PlanningAnalytics struct {
+	TotalScheduled       int     `json:"total_scheduled"`
+	CompletedWorkouts    int     `json:"completed_workouts"`
+	SkippedWorkouts      int     `json:"skipped_workouts"`
+	CompletionRate       float64 `json:"completion_rate"`
+	AverageRestDays      float64 `json:"average_rest_days"`
+	ConsistencyScore     float64 `json:"consistency_score"`
+	UpcomingWorkouts     int     `json:"upcoming_workouts"`
+	OverdueWorkouts      int     `json:"overdue_workouts"`
+	ActiveDeloads        int     `json:"active_deloads"`
+	RestDayCompliance    float64 `json:"rest_day_compliance"`
+	DeloadCompliance     float64 `json:"deload_compliance"`
+}
+
+// Recommendation engine data structures
+type RecommendationMetrics struct {
+	UserID              int                  `json:"user_id"`
+	RecentWorkouts      []Workout           `json:"recent_workouts"`
+	WeeklyVolume        []WeeklyVolumeData  `json:"weekly_volume"`
+	ConsecutiveDays     int                 `json:"consecutive_days"`
+	LastRestDay         *time.Time          `json:"last_rest_day"`
+	MuscleGroupFatigue  map[string]float64  `json:"muscle_group_fatigue"`
+	IntensityTrend      string              `json:"intensity_trend"`
+	PerformanceMetrics  PerformanceMetrics  `json:"performance_metrics"`
+}
+
+type WeeklyVolumeData struct {
+	WeekStart   time.Time `json:"week_start"`
+	TotalVolume float64   `json:"total_volume"`
+	Workouts    int       `json:"workouts"`
+	AvgRPE      float64   `json:"avg_rpe"`
+}
+
+type PerformanceMetrics struct {
+	VolumeDecline     float64 `json:"volume_decline"`
+	StrengthPlateau   bool    `json:"strength_plateau"`
+	FatigueIndicators int     `json:"fatigue_indicators"`
+	RecoveryScore     float64 `json:"recovery_score"`
+}
+
 // Request models for template and program management
 type CreateWorkoutTemplateRequest struct {
 	Name        string                         `json:"name" validate:"required"`

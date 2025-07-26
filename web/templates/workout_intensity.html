@@ -1,0 +1,587 @@
+{{template "base.html" .}}
+
+{{define "head"}}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .intensity-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .page-header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .page-title {
+            font-size: 2.5rem;
+            color: #333;
+            margin-bottom: 0.5rem;
+            font-weight: 700;
+        }
+
+        .page-subtitle {
+            color: #666;
+            font-size: 1.1rem;
+        }
+
+        .intensity-metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 3rem;
+        }
+
+        .metric-card {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .metric-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+        }
+
+        .metric-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            margin: 0 auto 1rem;
+            color: white;
+        }
+
+        .intensity-icon {
+            background: linear-gradient(135deg, #ff6b35, #ff8c42);
+        }
+
+        .volume-icon {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+        }
+
+        .duration-icon {
+            background: linear-gradient(135deg, #5cb85c, #4cae4c);
+        }
+
+        .rpe-icon {
+            background: linear-gradient(135deg, #f39c12, #e67e22);
+        }
+
+        .metric-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 0.5rem;
+        }
+
+        .metric-label {
+            font-size: 1rem;
+            color: #666;
+            font-weight: 500;
+        }
+
+        .metric-unit {
+            font-size: 0.8rem;
+            color: #999;
+        }
+
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+
+        .chart-card {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .chart-title {
+            font-size: 1.3rem;
+            color: #333;
+            margin-bottom: 1.5rem;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-bottom: 1rem;
+        }
+
+        .intensity-scale {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 2rem 0;
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .scale-item {
+            text-align: center;
+            flex: 1;
+        }
+
+        .scale-value {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 0.5rem;
+            font-weight: 700;
+            color: white;
+        }
+
+        .scale-1 { background: linear-gradient(135deg, #28a745, #20c997); }
+        .scale-2 { background: linear-gradient(135deg, #20c997, #17a2b8); }
+        .scale-3 { background: linear-gradient(135deg, #17a2b8, #007bff); }
+        .scale-4 { background: linear-gradient(135deg, #007bff, #6f42c1); }
+        .scale-5 { background: linear-gradient(135deg, #6f42c1, #e83e8c); }
+        .scale-6 { background: linear-gradient(135deg, #e83e8c, #dc3545); }
+        .scale-7 { background: linear-gradient(135deg, #dc3545, #fd7e14); }
+        .scale-8 { background: linear-gradient(135deg, #fd7e14, #ffc107); }
+        .scale-9 { background: linear-gradient(135deg, #ffc107, #ff8c00); }
+        .scale-10 { background: linear-gradient(135deg, #ff8c00, #ff6b35); }
+
+        .scale-label {
+            font-size: 0.8rem;
+            color: #666;
+            font-weight: 500;
+        }
+
+        .workout-list {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .workout-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            border-bottom: 1px solid #e9ecef;
+            transition: background-color 0.3s;
+        }
+
+        .workout-item:hover {
+            background-color: #f8f9fa;
+        }
+
+        .workout-item:last-child {
+            border-bottom: none;
+        }
+
+        .workout-info {
+            flex: 1;
+        }
+
+        .workout-name {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 0.25rem;
+        }
+
+        .workout-date {
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        .workout-metrics {
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+        }
+
+        .workout-metric {
+            text-align: center;
+        }
+
+        .workout-metric-value {
+            font-weight: 700;
+            color: #ff6b35;
+        }
+
+        .workout-metric-label {
+            font-size: 0.8rem;
+            color: #666;
+        }
+
+        .intensity-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: white;
+        }
+
+        .intensity-low { background: linear-gradient(135deg, #28a745, #20c997); }
+        .intensity-moderate { background: linear-gradient(135deg, #ffc107, #fd7e14); }
+        .intensity-high { background: linear-gradient(135deg, #dc3545, #ff6b35); }
+
+        /* Dark mode styles */
+        .dark-mode .metric-card,
+        .dark-mode .chart-card,
+        .dark-mode .workout-list {
+            background: #2d2d2d;
+        }
+
+        .dark-mode .metric-value,
+        .dark-mode .workout-name,
+        .dark-mode .chart-title {
+            color: #e0e0e0;
+        }
+
+        .dark-mode .page-title {
+            color: #e0e0e0;
+        }
+
+        .dark-mode .page-subtitle {
+            color: #b0b0b0;
+        }
+
+        .dark-mode .metric-label,
+        .dark-mode .workout-date,
+        .dark-mode .workout-metric-label,
+        .dark-mode .scale-label {
+            color: #b0b0b0;
+        }
+
+        .dark-mode .intensity-scale {
+            background: #404040;
+        }
+
+        .dark-mode .workout-item:hover {
+            background-color: #404040;
+        }
+
+        @media (max-width: 768px) {
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .intensity-metrics {
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            }
+            
+            .workout-metrics {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+        }
+    </style>
+{{end}}
+
+{{define "content"}}
+<div class="intensity-container">
+    <div class="page-header">
+        <h1 class="page-title">🔥 Workout Intensity</h1>
+        <p class="page-subtitle">Analyze and track your workout intensity metrics</p>
+    </div>
+
+    <!-- Intensity Metrics Overview -->
+    <div class="intensity-metrics">
+        <div class="metric-card">
+            <div class="metric-icon intensity-icon">
+                🔥
+            </div>
+            <div class="metric-value">{{if .AverageIntensity}}{{printf "%.1f" .AverageIntensity}}{{else}}0.0{{end}}</div>
+            <div class="metric-label">Avg Intensity <span class="metric-unit">/10</span></div>
+        </div>
+        
+        <div class="metric-card">
+            <div class="metric-icon volume-icon">
+                📊
+            </div>
+            <div class="metric-value">{{if .AverageVolume}}{{printf "%.0f" .AverageVolume}}{{else}}0{{end}}</div>
+            <div class="metric-label">Avg Volume <span class="metric-unit">lbs</span></div>
+        </div>
+        
+        <div class="metric-card">
+            <div class="metric-icon duration-icon">
+                ⏱️
+            </div>
+            <div class="metric-value">{{if .AverageDuration}}{{.AverageDuration}}{{else}}0{{end}}</div>
+            <div class="metric-label">Avg Duration <span class="metric-unit">min</span></div>
+        </div>
+        
+        <div class="metric-card">
+            <div class="metric-icon rpe-icon">
+                💪
+            </div>
+            <div class="metric-value">{{if .AverageRPE}}{{printf "%.1f" .AverageRPE}}{{else}}0.0{{end}}</div>
+            <div class="metric-label">Avg RPE <span class="metric-unit">/10</span></div>
+        </div>
+    </div>
+
+    <!-- Intensity Scale Reference -->
+    <div class="chart-card">
+        <h3 class="chart-title">Intensity Scale Reference</h3>
+        <div class="intensity-scale">
+            <div class="scale-item">
+                <div class="scale-value scale-1">1</div>
+                <div class="scale-label">Very Light</div>
+            </div>
+            <div class="scale-item">
+                <div class="scale-value scale-2">2</div>
+                <div class="scale-label">Light</div>
+            </div>
+            <div class="scale-item">
+                <div class="scale-value scale-3">3</div>
+                <div class="scale-label">Light</div>
+            </div>
+            <div class="scale-item">
+                <div class="scale-value scale-4">4</div>
+                <div class="scale-label">Moderate</div>
+            </div>
+            <div class="scale-item">
+                <div class="scale-value scale-5">5</div>
+                <div class="scale-label">Moderate</div>
+            </div>
+            <div class="scale-item">
+                <div class="scale-value scale-6">6</div>
+                <div class="scale-label">Hard</div>
+            </div>
+            <div class="scale-item">
+                <div class="scale-value scale-7">7</div>
+                <div class="scale-label">Hard</div>
+            </div>
+            <div class="scale-item">
+                <div class="scale-value scale-8">8</div>
+                <div class="scale-label">Very Hard</div>
+            </div>
+            <div class="scale-item">
+                <div class="scale-value scale-9">9</div>
+                <div class="scale-label">Very Hard</div>
+            </div>
+            <div class="scale-item">
+                <div class="scale-value scale-10">10</div>
+                <div class="scale-label">Maximum</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="charts-grid">
+        <div class="chart-card">
+            <h3 class="chart-title">Intensity Over Time</h3>
+            <div class="chart-container">
+                <canvas id="intensityChart"></canvas>
+            </div>
+        </div>
+
+        <div class="chart-card">
+            <h3 class="chart-title">Volume vs Intensity</h3>
+            <div class="chart-container">
+                <canvas id="volumeIntensityChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Workouts -->
+    <div class="workout-list">
+        <h3 class="chart-title">Recent Workout Intensities</h3>
+        {{if .RecentWorkouts}}
+            {{range .RecentWorkouts}}
+            <div class="workout-item">
+                <div class="workout-info">
+                    <div class="workout-name">{{.Name}}</div>
+                    <div class="workout-date">{{.Date.Format "Jan 2, 2006"}}</div>
+                </div>
+                <div class="workout-metrics">
+                    <div class="workout-metric">
+                        <div class="workout-metric-value">{{printf "%.1f" .IntensityScore}}</div>
+                        <div class="workout-metric-label">Intensity</div>
+                    </div>
+                    <div class="workout-metric">
+                        <div class="workout-metric-value">{{printf "%.0f" .TotalVolume}}</div>
+                        <div class="workout-metric-label">Volume</div>
+                    </div>
+                    <div class="workout-metric">
+                        <div class="workout-metric-value">{{.DurationMinutes}}</div>
+                        <div class="workout-metric-label">Duration</div>
+                    </div>
+                    <div class="intensity-badge {{if lt .IntensityScore 4.0}}intensity-low{{else if lt .IntensityScore 7.0}}intensity-moderate{{else}}intensity-high{{end}}">
+                        {{if lt .IntensityScore 4.0}}Low{{else if lt .IntensityScore 7.0}}Moderate{{else}}High{{end}}
+                    </div>
+                </div>
+            </div>
+            {{end}}
+        {{else}}
+            <div class="workout-item">
+                <div class="workout-info">
+                    <div class="workout-name">No workouts recorded yet</div>
+                    <div class="workout-date">Start logging workouts to see intensity data</div>
+                </div>
+            </div>
+        {{end}}
+    </div>
+</div>
+
+<script>
+let intensityChart;
+let volumeIntensityChart;
+
+document.addEventListener('DOMContentLoaded', function() {
+    initializeCharts();
+    loadIntensityData();
+});
+
+function initializeCharts() {
+    // Intensity Over Time Chart
+    const intensityCtx = document.getElementById('intensityChart').getContext('2d');
+    intensityChart = new Chart(intensityCtx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Intensity Score',
+                data: [],
+                borderColor: '#ff6b35',
+                backgroundColor: 'rgba(255, 107, 53, 0.1)',
+                borderWidth: 3,
+                fill: true,
+                tension: 0.4,
+                pointBackgroundColor: '#ff6b35',
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2,
+                pointRadius: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 10,
+                    title: {
+                        display: true,
+                        text: 'Intensity Score (1-10)'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Date'
+                    }
+                }
+            }
+        }
+    });
+
+    // Volume vs Intensity Scatter Chart
+    const volumeIntensityCtx = document.getElementById('volumeIntensityChart').getContext('2d');
+    volumeIntensityChart = new Chart(volumeIntensityCtx, {
+        type: 'scatter',
+        data: {
+            datasets: [{
+                label: 'Workouts',
+                data: [],
+                backgroundColor: 'rgba(102, 126, 234, 0.6)',
+                borderColor: '#667eea',
+                borderWidth: 2,
+                pointRadius: 8,
+                pointHoverRadius: 10
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 10,
+                    title: {
+                        display: true,
+                        text: 'Intensity Score'
+                    }
+                },
+                x: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Total Volume (lbs)'
+                    }
+                }
+            }
+        }
+    });
+}
+
+async function loadIntensityData() {
+    try {
+        const response = await fetch('/api/workout-intensity?days=90');
+        const data = await response.json();
+        
+        updateCharts(data);
+    } catch (error) {
+        console.error('Error loading intensity data:', error);
+        showPlaceholderData();
+    }
+}
+
+function updateCharts(data) {
+    if (data.intensityOverTime) {
+        intensityChart.data.labels = data.intensityOverTime.dates || [];
+        intensityChart.data.datasets[0].data = data.intensityOverTime.scores || [];
+        intensityChart.update();
+    }
+
+    if (data.volumeIntensityData) {
+        volumeIntensityChart.data.datasets[0].data = data.volumeIntensityData.map(point => ({
+            x: point.volume,
+            y: point.intensity
+        })) || [];
+        volumeIntensityChart.update();
+    }
+}
+
+function showPlaceholderData() {
+    // Sample data for demonstration
+    const sampleIntensityData = {
+        dates: ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5', 'Week 6'],
+        scores: [6.5, 7.2, 6.8, 7.5, 8.0, 7.3]
+    };
+    
+    const sampleVolumeIntensityData = [
+        { x: 3500, y: 6.5 },
+        { x: 4200, y: 7.2 },
+        { x: 3800, y: 6.8 },
+        { x: 4500, y: 7.5 },
+        { x: 5000, y: 8.0 },
+        { x: 4300, y: 7.3 }
+    ];
+    
+    intensityChart.data.labels = sampleIntensityData.dates;
+    intensityChart.data.datasets[0].data = sampleIntensityData.scores;
+    intensityChart.update();
+    
+    volumeIntensityChart.data.datasets[0].data = sampleVolumeIntensityData;
+    volumeIntensityChart.update();
+}
+</script>
+{{end}}

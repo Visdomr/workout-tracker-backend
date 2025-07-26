@@ -237,6 +237,578 @@ func (db *DB) createTables() error {
 		`CREATE INDEX IF NOT EXISTS idx_program_templates_program_id ON program_templates(program_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_template_sharing_owner_id ON template_sharing(owner_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_template_sharing_shared_with_id ON template_sharing(shared_with_id)`,
+		`CREATE TABLE IF NOT EXISTS scheduled_workouts (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL,
+			template_id INTEGER,
+			title TEXT NOT NULL,
+			description TEXT DEFAULT '',
+			scheduled_date DATETIME NOT NULL,
+			scheduled_time TEXT, -- Format: HH:MM
+			estimated_duration INTEGER DEFAULT 60, -- minutes
+			status TEXT DEFAULT 'scheduled', -- scheduled, completed, skipped, cancelled
+			workout_id INTEGER, -- Reference to actual workout when completed
+			reminder_sent BOOLEAN DEFAULT 0,
+			notes TEXT DEFAULT '',
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+			FOREIGN KEY (template_id) REFERENCES workout_templates(id) ON DELETE SET NULL,
+			FOREIGN KEY (workout_id) REFERENCES workouts(id) ON DELETE SET NULL
+		)`,
+		`CREATE TABLE IF NOT EXISTS workout_reminders (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL,
+			scheduled_workout_id INTEGER NOT NULL,
+			reminder_type TEXT NOT NULL, -- email, push, sms
+			message TEXT NOT NULL,
+			scheduled_for DATETIME NOT NULL,
+			status TEXT DEFAULT 'pending', -- pending, sent, failed, cancelled
+			sent_at DATETIME,
+			error_message TEXT,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+			FOREIGN KEY (scheduled_workout_id) REFERENCES scheduled_workouts(id) ON DELETE CASCADE
+		)`,
+		`CREATE TABLE IF NOT EXISTS rest_day_recommendations (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL,
+			recommended_date DATETIME NOT NULL,
+			reason TEXT NOT NULL, -- high_volume, consecutive_days, muscle_group_fatigue, etc.
+			intensity_score REAL DEFAULT 0, -- 0-10 scale
+			volume_load REAL DEFAULT 0, -- Total volume from recent workouts
+			consecutive_days INTEGER DEFAULT 0,
+			muscle_groups_worked TEXT, -- JSON array of muscle groups needing rest
+			status TEXT DEFAULT 'suggested', -- suggested, accepted, ignored, overridden
+			user_response TEXT, -- User's response/note
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+		)`,
+		`CREATE TABLE IF NOT EXISTS deload_recommendations (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL,
+			recommended_start_date DATETIME NOT NULL,
+			recommended_end_date DATETIME NOT NULL,
+			reason TEXT NOT NULL, -- fatigue_accumulation, plateau, overreaching, scheduled
+			volume_reduction_percent INTEGER DEFAULT 40, -- Recommended volume reduction
+			intensity_reduction_percent INTEGER DEFAULT 20, -- Recommended intensity reduction
+			trigger_metrics TEXT, -- JSON object with metrics that triggered recommendation
+			status TEXT DEFAULT 'suggested', -- suggested, accepted, ignored, active, completed
+			user_response TEXT,
+			started_at DATETIME,
+			completed_at DATETIME,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+		)`,
+		`CREATE TABLE IF NOT EXISTS workout_calendar_events (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL,
+			scheduled_workout_id INTEGER,
+			rest_day_id INTEGER,
+			deload_id INTEGER,
+			event_type TEXT NOT NULL, -- workout, rest_day, deload
+			title TEXT NOT NULL,
+			description TEXT DEFAULT '',
+			start_date DATETIME NOT NULL,
+			end_date DATETIME,
+			all_day BOOLEAN DEFAULT 1,
+			color TEXT DEFAULT '#3788d8', -- Color for calendar display
+			is_recurring BOOLEAN DEFAULT 0,
+			recurrence_pattern TEXT, -- JSON object for recurring events
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+			FOREIGN KEY (scheduled_workout_id) REFERENCES scheduled_workouts(id) ON DELETE CASCADE,
+			FOREIGN KEY (rest_day_id) REFERENCES rest_day_recommendations(id) ON DELETE CASCADE,
+			FOREIGN KEY (deload_id) REFERENCES deload_recommendations(id) ON DELETE CASCADE
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_scheduled_workouts_user_id ON scheduled_workouts(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_scheduled_workouts_date ON scheduled_workouts(scheduled_date)`,
+		`CREATE INDEX IF NOT EXISTS idx_workout_reminders_user_id ON workout_reminders(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_workout_reminders_scheduled_for ON workout_reminders(scheduled_for)`,
+		`CREATE INDEX IF NOT EXISTS idx_rest_day_recommendations_user_id ON rest_day_recommendations(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_rest_day_recommendations_date ON rest_day_recommendations(recommended_date)`,
+		`CREATE INDEX IF NOT EXISTS idx_deload_recommendations_user_id ON deload_recommendations(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_workout_calendar_events_user_id ON workout_calendar_events(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_workout_calendar_events_start_date ON workout_calendar_events(start_date)`,
+		// ========== ADVANCED ANALYTICS TABLES ==========
+		`CREATE TABLE IF NOT EXISTS personal_records (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL,
+			exercise_name TEXT NOT NULL,
+			weight REAL NOT NULL,
+			reps INTEGER NOT NULL,
+			volume REAL NOT NULL, -- weight * reps
+			one_rep_max REAL NOT NULL,
+			date DATETIME NOT NULL,
+			workout_id INTEGER,
+			set_id INTEGER,
+			is_new BOOLEAN DEFAULT 1, -- If achieved in current period
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+			FOREIGN KEY (workout_id) REFERENCES workouts(id) ON DELETE CASCADE,
+			FOREIGN KEY (set_id) REFERENCES sets(id) ON DELETE CASCADE
+		)`,
+		`CREATE TABLE IF NOT EXISTS strength_progress (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL,
+			exercise_name TEXT NOT NULL,
+			category TEXT NOT NULL,
+			date DATETIME NOT NULL,
+			max_weight REAL NOT NULL,
+			max_reps INTEGER NOT NULL,
+			volume REAL NOT NULL,
+			one_rep_max REAL NOT NULL,
+			workout_id INTEGER,
+			trend TEXT DEFAULT 'stable', -- improving, stable, declining
+			trend_percent REAL DEFAULT 0,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+			FOREIGN KEY (workout_id) REFERENCES workouts(id) ON DELETE CASCADE
+		)`,
+		`CREATE TABLE IF NOT EXISTS workout_intensity (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL,
+			workout_id INTEGER NOT NULL,
+			date DATETIME NOT NULL,
+			total_volume REAL NOT NULL,
+			avg_weight REAL NOT NULL,
+			total_sets INTEGER NOT NULL,
+			total_reps INTEGER NOT NULL,
+			intensity_score REAL NOT NULL, -- Calculated intensity metric (0-10)
+			duration_minutes INTEGER DEFAULT 0,
+			avg_rest_time INTEGER DEFAULT 0, -- seconds
+			rpe_score REAL DEFAULT 0, -- Rate of Perceived Exertion (1-10)
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+			FOREIGN KEY (workout_id) REFERENCES workouts(id) ON DELETE CASCADE
+		)`,
+		`CREATE TABLE IF NOT EXISTS exercise_frequency (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL,
+			exercise_name TEXT NOT NULL,
+			category TEXT NOT NULL,
+			count INTEGER DEFAULT 1,
+			percentage REAL DEFAULT 0,
+			last_performed DATETIME NOT NULL,
+			first_performed DATETIME NOT NULL,
+			total_volume REAL DEFAULT 0,
+			total_sets INTEGER DEFAULT 0,
+			total_reps INTEGER DEFAULT 0,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+		)`,
+		`CREATE TABLE IF NOT EXISTS progress_trends (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL,
+			trend_type TEXT NOT NULL, -- volume, strength, frequency
+			trend_direction TEXT NOT NULL, -- up, down, stable
+			change_percent REAL NOT NULL,
+			confidence_score REAL DEFAULT 0, -- 0-100
+			time_period TEXT NOT NULL, -- week, month, quarter, year
+			start_date DATETIME NOT NULL,
+			end_date DATETIME NOT NULL,
+			data_points TEXT DEFAULT '[]', -- JSON array of data points
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+		)`,
+		`CREATE TABLE IF NOT EXISTS weekly_summaries (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL,
+			week_start DATETIME NOT NULL,
+			week_end DATETIME NOT NULL,
+			week_number INTEGER NOT NULL,
+			year INTEGER NOT NULL,
+			total_workouts INTEGER DEFAULT 0,
+			total_duration INTEGER DEFAULT 0, -- minutes
+			avg_duration REAL DEFAULT 0,
+			total_volume REAL DEFAULT 0,
+			total_sets INTEGER DEFAULT 0,
+			total_reps INTEGER DEFAULT 0,
+			unique_exercises INTEGER DEFAULT 0,
+			max_weight REAL DEFAULT 0,
+			avg_calories INTEGER DEFAULT 0,
+			weight_change REAL DEFAULT 0,
+			top_exercises TEXT DEFAULT '[]', -- JSON array
+			prs_achieved INTEGER DEFAULT 0,
+			consistency_score REAL DEFAULT 0, -- 0-100
+			intensity_score REAL DEFAULT 0, -- 0-10
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+		)`,
+		`CREATE TABLE IF NOT EXISTS monthly_summaries (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL,
+			month INTEGER NOT NULL,
+			year INTEGER NOT NULL,
+			month_name TEXT NOT NULL,
+			total_workouts INTEGER DEFAULT 0,
+			total_duration INTEGER DEFAULT 0,
+			avg_duration REAL DEFAULT 0,
+			total_volume REAL DEFAULT 0,
+			total_sets INTEGER DEFAULT 0,
+			total_reps INTEGER DEFAULT 0,
+			unique_exercises INTEGER DEFAULT 0,
+			max_weight REAL DEFAULT 0,
+			avg_calories INTEGER DEFAULT 0,
+			weight_change REAL DEFAULT 0,
+			start_weight REAL DEFAULT 0,
+			end_weight REAL DEFAULT 0,
+			top_exercises TEXT DEFAULT '[]',
+			prs_achieved INTEGER DEFAULT 0,
+			consistency_score REAL DEFAULT 0,
+			intensity_score REAL DEFAULT 0,
+			category_breakdown TEXT DEFAULT '{}', -- JSON object
+			progress_highlights TEXT DEFAULT '[]', -- JSON array
+			goals_achieved TEXT DEFAULT '[]',
+			recommendations TEXT DEFAULT '[]',
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+		)`,
+		`CREATE TABLE IF NOT EXISTS yearly_summaries (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL,
+			year INTEGER NOT NULL,
+			total_workouts INTEGER DEFAULT 0,
+			total_duration INTEGER DEFAULT 0,
+			avg_duration REAL DEFAULT 0,
+			total_volume REAL DEFAULT 0,
+			total_sets INTEGER DEFAULT 0,
+			total_reps INTEGER DEFAULT 0,
+			unique_exercises INTEGER DEFAULT 0,
+			max_weight REAL DEFAULT 0,
+			avg_calories INTEGER DEFAULT 0,
+			total_weight_change REAL DEFAULT 0,
+			start_weight REAL DEFAULT 0,
+			end_weight REAL DEFAULT 0,
+			top_exercises TEXT DEFAULT '[]',
+			total_prs_achieved INTEGER DEFAULT 0,
+			avg_consistency REAL DEFAULT 0,
+			avg_intensity REAL DEFAULT 0,
+			year_highlights TEXT DEFAULT '[]',
+			fitness_journey TEXT DEFAULT '[]',
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+		)`,
+		`CREATE TABLE IF NOT EXISTS quarterly_summaries (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL,
+			quarter INTEGER NOT NULL,
+			year INTEGER NOT NULL,
+			quarter_name TEXT NOT NULL,
+			start_date DATETIME NOT NULL,
+			end_date DATETIME NOT NULL,
+			total_workouts INTEGER DEFAULT 0,
+			total_volume REAL DEFAULT 0,
+			avg_intensity REAL DEFAULT 0,
+			weight_change REAL DEFAULT 0,
+			prs_achieved INTEGER DEFAULT 0,
+			top_achievements TEXT DEFAULT '[]',
+			focus_areas TEXT DEFAULT '[]',
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+		)`,
+		`CREATE TABLE IF NOT EXISTS milestones (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL,
+			title TEXT NOT NULL,
+			description TEXT DEFAULT '',
+			category TEXT NOT NULL, -- strength, endurance, consistency, weight_loss, etc.
+			value REAL NOT NULL,
+			unit TEXT NOT NULL, -- lbs, kg, reps, days, etc.
+			achieved_at DATETIME NOT NULL,
+			workout_id INTEGER,
+			exercise_name TEXT,
+			is_personal_record BOOLEAN DEFAULT 0,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+			FOREIGN KEY (workout_id) REFERENCES workouts(id) ON DELETE CASCADE
+		)`,
+		`CREATE TABLE IF NOT EXISTS exercise_progress_charts (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL,
+			exercise_name TEXT NOT NULL,
+			category TEXT NOT NULL,
+			time_range TEXT NOT NULL, -- last_30_days, last_3_months, last_6_months, last_year
+			data_points TEXT DEFAULT '[]', -- JSON array of ExerciseProgressPoint
+			statistics TEXT DEFAULT '{}', -- JSON object with ExerciseStatistics
+			milestones TEXT DEFAULT '[]', -- JSON array of ExerciseMilestone
+			predictions TEXT DEFAULT '{}', -- JSON object with ExercisePrediction
+			comparisons TEXT DEFAULT '{}', -- JSON object with ExerciseComparison
+			last_updated DATETIME DEFAULT CURRENT_TIMESTAMP,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+		)`,
+		`CREATE TABLE IF NOT EXISTS exercise_comparisons (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL,
+			exercises TEXT NOT NULL, -- JSON array of exercise names
+			time_range TEXT NOT NULL,
+			metric TEXT NOT NULL, -- weight, volume, frequency
+			data_series TEXT DEFAULT '[]', -- JSON array of ComparisonDataSeries
+			rankings TEXT DEFAULT '[]', -- JSON array of ExerciseRanking
+			insights TEXT DEFAULT '[]', -- JSON array of insights
+			last_updated DATETIME DEFAULT CURRENT_TIMESTAMP,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+		)`,
+		`CREATE TABLE IF NOT EXISTS workout_analytics_cache (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL,
+			cache_key TEXT NOT NULL, -- unique identifier for cached data
+			cache_type TEXT NOT NULL, -- analytics_data, summary, progress_chart, etc.
+			data TEXT NOT NULL, -- JSON data
+			parameters TEXT DEFAULT '{}', -- JSON object with query parameters
+			expires_at DATETIME NOT NULL,
+			last_updated DATETIME DEFAULT CURRENT_TIMESTAMP,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+			UNIQUE(user_id, cache_key)
+		)`,
+		`CREATE TABLE IF NOT EXISTS template_usage (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			template_id INTEGER NOT NULL,
+			user_id INTEGER NOT NULL,
+			workout_id INTEGER NOT NULL,
+			used_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (template_id) REFERENCES workout_templates(id) ON DELETE CASCADE,
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+			FOREIGN KEY (workout_id) REFERENCES workouts(id) ON DELETE CASCADE
+		)`,
+		// Indexes for advanced analytics tables
+		`CREATE INDEX IF NOT EXISTS idx_personal_records_user_id ON personal_records(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_personal_records_exercise_name ON personal_records(exercise_name)`,
+		`CREATE INDEX IF NOT EXISTS idx_personal_records_date ON personal_records(date)`,
+		`CREATE INDEX IF NOT EXISTS idx_strength_progress_user_id ON strength_progress(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_strength_progress_exercise_name ON strength_progress(exercise_name)`,
+		`CREATE INDEX IF NOT EXISTS idx_strength_progress_date ON strength_progress(date)`,
+		`CREATE INDEX IF NOT EXISTS idx_workout_intensity_user_id ON workout_intensity(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_workout_intensity_workout_id ON workout_intensity(workout_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_workout_intensity_date ON workout_intensity(date)`,
+		`CREATE INDEX IF NOT EXISTS idx_exercise_frequency_user_id ON exercise_frequency(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_exercise_frequency_exercise_name ON exercise_frequency(exercise_name)`,
+		`CREATE INDEX IF NOT EXISTS idx_progress_trends_user_id ON progress_trends(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_progress_trends_type_period ON progress_trends(trend_type, time_period)`,
+		`CREATE INDEX IF NOT EXISTS idx_weekly_summaries_user_id ON weekly_summaries(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_weekly_summaries_week ON weekly_summaries(year, week_number)`,
+		`CREATE INDEX IF NOT EXISTS idx_monthly_summaries_user_id ON monthly_summaries(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_monthly_summaries_month ON monthly_summaries(year, month)`,
+		`CREATE INDEX IF NOT EXISTS idx_yearly_summaries_user_id ON yearly_summaries(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_yearly_summaries_year ON yearly_summaries(year)`,
+		`CREATE INDEX IF NOT EXISTS idx_quarterly_summaries_user_id ON quarterly_summaries(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_quarterly_summaries_quarter ON quarterly_summaries(year, quarter)`,
+		`CREATE INDEX IF NOT EXISTS idx_milestones_user_id ON milestones(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_milestones_category ON milestones(category)`,
+		`CREATE INDEX IF NOT EXISTS idx_milestones_achieved_at ON milestones(achieved_at)`,
+		`CREATE INDEX IF NOT EXISTS idx_exercise_progress_charts_user_id ON exercise_progress_charts(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_exercise_progress_charts_exercise ON exercise_progress_charts(exercise_name)`,
+		`CREATE INDEX IF NOT EXISTS idx_exercise_comparisons_user_id ON exercise_comparisons(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_workout_analytics_cache_user_id ON workout_analytics_cache(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_workout_analytics_cache_key ON workout_analytics_cache(cache_key)`,
+		`CREATE INDEX IF NOT EXISTS idx_workout_analytics_cache_expires ON workout_analytics_cache(expires_at)`,
+		`CREATE INDEX IF NOT EXISTS idx_template_usage_template_id ON template_usage(template_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_template_usage_user_id ON template_usage(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_template_usage_used_at ON template_usage(used_at)`,
+		`CREATE TABLE IF NOT EXISTS achievements (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL,
+			type TEXT NOT NULL, -- strength, consistency, milestone, etc.
+			name TEXT NOT NULL,
+			description TEXT DEFAULT '',
+			badge_url TEXT DEFAULT '', -- URL to badge image
+			achieved_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+		)`,
+		`CREATE TABLE IF NOT EXISTS badges (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			name TEXT NOT NULL,
+			description TEXT DEFAULT '',
+			badge_url TEXT DEFAULT '',
+			criteria TEXT DEFAULT '',
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`CREATE TABLE IF NOT EXISTS streaks (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL,
+			type TEXT NOT NULL, -- workout, nutrition
+			start_date DATETIME NOT NULL,
+			end_date DATETIME,
+			count INTEGER DEFAULT 0,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+		)`,
+		`CREATE TABLE IF NOT EXISTS points (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL,
+			type TEXT NOT NULL, -- workout, nutrition, achievement
+			value INTEGER DEFAULT 0,
+			description TEXT DEFAULT '',
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+		)`,
+		`CREATE TABLE IF NOT EXISTS challenges (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			name TEXT NOT NULL,
+			description TEXT DEFAULT '',
+			start_date DATETIME NOT NULL,
+			end_date DATETIME NOT NULL,
+			goal_type TEXT NOT NULL, -- steps, streak, workout, etc.
+			goal_value INTEGER NOT NULL,
+			reward_points INTEGER DEFAULT 0,
+			badge_id INTEGER,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (badge_id) REFERENCES badges(id) ON DELETE SET NULL
+		)`,
+		`CREATE TABLE IF NOT EXISTS user_challenges (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL,
+			challenge_id INTEGER NOT NULL,
+			progress INTEGER DEFAULT 0,
+			status TEXT DEFAULT 'ongoing', -- ongoing, completed, failed
+			completed_at DATETIME,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+			FOREIGN KEY (challenge_id) REFERENCES challenges(id) ON DELETE CASCADE
+		)`,
+		`CREATE TABLE IF NOT EXISTS export_jobs (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL,
+			export_type TEXT NOT NULL, -- csv, json, backup
+			data_types TEXT NOT NULL, -- JSON array of data types to export
+			status TEXT DEFAULT 'pending', -- pending, processing, completed, failed
+			file_path TEXT DEFAULT '',
+			file_size INTEGER DEFAULT 0,
+			download_count INTEGER DEFAULT 0,
+			export_options TEXT DEFAULT '{}', -- JSON object with export options
+			started_at DATETIME,
+			completed_at DATETIME,
+			error_message TEXT,
+			expires_at DATETIME,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+		)`,
+		`CREATE TABLE IF NOT EXISTS import_jobs (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL,
+			import_type TEXT NOT NULL, -- csv, json, myfitnesspal, strava, etc.
+			data_types TEXT NOT NULL, -- JSON array of data types to import
+			status TEXT DEFAULT 'pending', -- pending, processing, completed, failed, validation_error
+			file_path TEXT NOT NULL,
+			file_size INTEGER DEFAULT 0,
+			total_records INTEGER DEFAULT 0,
+			processed_records INTEGER DEFAULT 0,
+			successful_records INTEGER DEFAULT 0,
+			failed_records INTEGER DEFAULT 0,
+			import_options TEXT DEFAULT '{}', -- JSON object with import options
+			validation_errors TEXT DEFAULT '[]', -- JSON array of validation errors
+			started_at DATETIME,
+			completed_at DATETIME,
+			error_message TEXT,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+		)`,
+		`CREATE TABLE IF NOT EXISTS data_sync_configs (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL,
+			provider TEXT NOT NULL, -- strava, myfitnesspal, garmin, fitbit, etc.
+			access_token TEXT NOT NULL,
+			refresh_token TEXT,
+			token_expires_at DATETIME,
+			sync_enabled BOOLEAN DEFAULT 1,
+			last_sync_at DATETIME,
+			sync_frequency TEXT DEFAULT 'daily', -- manual, hourly, daily, weekly
+			data_types TEXT DEFAULT '[]', -- JSON array of data types to sync
+			sync_options TEXT DEFAULT '{}', -- JSON object with sync options
+			is_active BOOLEAN DEFAULT 1,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+		)`,
+		`CREATE TABLE IF NOT EXISTS sync_logs (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL,
+			sync_config_id INTEGER NOT NULL,
+			sync_type TEXT NOT NULL, -- import, export
+			status TEXT NOT NULL, -- success, partial, failed
+			records_processed INTEGER DEFAULT 0,
+			records_successful INTEGER DEFAULT 0,
+			records_failed INTEGER DEFAULT 0,
+			start_time DATETIME NOT NULL,
+			end_time DATETIME,
+			error_details TEXT,
+			sync_summary TEXT, -- JSON object with sync summary
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+			FOREIGN KEY (sync_config_id) REFERENCES data_sync_configs(id) ON DELETE CASCADE
+		)`,
+		`CREATE TABLE IF NOT EXISTS backup_configs (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL,
+			backup_frequency TEXT DEFAULT 'weekly', -- manual, daily, weekly, monthly
+			include_workouts BOOLEAN DEFAULT 1,
+			include_nutrition BOOLEAN DEFAULT 1,
+			include_body_metrics BOOLEAN DEFAULT 1,
+			include_templates BOOLEAN DEFAULT 1,
+			include_settings BOOLEAN DEFAULT 1,
+			include_media BOOLEAN DEFAULT 0,
+			compression_enabled BOOLEAN DEFAULT 1,
+			encryption_enabled BOOLEAN DEFAULT 0,
+			retention_days INTEGER DEFAULT 90,
+			last_backup_at DATETIME,
+			next_backup_at DATETIME,
+			is_active BOOLEAN DEFAULT 1,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+		)`,
+		`CREATE TABLE IF NOT EXISTS file_uploads (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL,
+			filename TEXT NOT NULL,
+			original_filename TEXT NOT NULL,
+			file_path TEXT NOT NULL,
+			file_size INTEGER NOT NULL,
+			mime_type TEXT NOT NULL,
+			file_hash TEXT NOT NULL,
+			upload_type TEXT NOT NULL, -- import, profile_picture, etc.
+			status TEXT DEFAULT 'uploaded', -- uploaded, processing, processed, deleted
+			processed_at DATETIME,
+			deleted_at DATETIME,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_export_jobs_user_id ON export_jobs(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_export_jobs_status ON export_jobs(status)`,
+		`CREATE INDEX IF NOT EXISTS idx_import_jobs_user_id ON import_jobs(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_import_jobs_status ON import_jobs(status)`,
+		`CREATE INDEX IF NOT EXISTS idx_data_sync_configs_user_id ON data_sync_configs(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_sync_logs_user_id ON sync_logs(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_sync_logs_config_id ON sync_logs(sync_config_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_backup_configs_user_id ON backup_configs(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_file_uploads_user_id ON file_uploads(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_file_uploads_hash ON file_uploads(file_hash)`,
 	}
 
 	for _, query := range queries {
